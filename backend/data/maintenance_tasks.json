@@ -1,0 +1,92 @@
+[
+  {
+    "task_id": "M001",
+    "asset_id": "T-102",
+    "asset_type": "Track",
+    "section": "S1",
+    "duration": 120,
+    "priority": "critical",
+    "available_windows": [
+      {
+        "start": 0,
+        "end": 360
+      }
+    ],
+    "preferred_start": null
+  },
+  {
+    "task_id": "M002",
+    "asset_id": "SG-21",
+    "asset_type": "Signal",
+    "section": "S1",
+    "duration": 60,
+    "priority": "high",
+    "available_windows": [
+      {
+        "start": 180,
+        "end": 480
+      }
+    ],
+    "preferred_start": 240
+  },
+  {
+    "task_id": "M003",
+    "asset_id": "O-44",
+    "asset_type": "OHE",
+    "section": "S2",
+    "duration": 45,
+    "priority": "high",
+    "available_windows": [
+      {
+        "start": 120,
+        "end": 360
+      }
+    ],
+    "preferred_start": 180
+  },
+  {
+    "task_id": "M004",
+    "asset_id": "T-118",
+    "asset_type": "Track",
+    "section": "S1",
+    "duration": 120,
+    "priority": "low",
+    "available_windows": [
+      {
+        "start": 0,
+        "end": 480
+      }
+    ],
+    "preferred_start": 300
+  },
+  {
+    "task_id": "M005",
+    "asset_id": "SG-35",
+    "asset_type": "Signal",
+    "section": "S2",
+    "duration": 60,
+    "priority": "medium",
+    "available_windows": [
+      {
+        "start": 360,
+        "end": 600
+      }
+    ],
+    "preferred_start": 420
+  },
+  {
+    "task_id": "M006",
+    "asset_id": "O-52",
+    "asset_type": "OHE",
+    "section": "S3",
+    "duration": 90,
+    "priority": "medium",
+    "available_windows": [
+      {
+        "start": 420,
+        "end": 720
+      }
+    ],
+    "preferred_start": 480
+  }
+]

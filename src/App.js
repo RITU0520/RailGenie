@@ -1,24 +1,66 @@
-import logo from './logo.svg';
-import './App.css';
+import React from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+} from "react-router-dom";
+
+import Layout from "./components/Layout";
+
+import Dashboard from "./pages/Dashboard";
+import MaintenanceTasks from "./pages/MaintenanceTasks";
+import BlockPlanning from "./pages/BlockPlanning";
+import OptimizedSchedule from "./pages/OptimizedSchedule";
+import WhatIfSimulator from "./pages/WhatIfSimulator";
+import Analytics from "./pages/Analytics";
+
+import "./App.css";
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <BrowserRouter>
+      <Routes>
+
+        {/* =========================================
+            ALL APPLICATION PAGES USE THE LAYOUT
+        ========================================== */}
+
+        <Route element={<Layout />}>
+
+          <Route
+            path="/"
+            element={<Dashboard />}
+          />
+
+          <Route
+            path="/tasks"
+            element={<MaintenanceTasks />}
+          />
+
+          <Route
+            path="/planning"
+            element={<BlockPlanning />}
+          />
+
+          <Route
+            path="/schedule"
+            element={<OptimizedSchedule />}
+          />
+
+          <Route
+            path="/simulator"
+            element={<WhatIfSimulator />}
+          />
+
+          <Route
+            path="/analytics"
+            element={<Analytics />}
+          />
+
+        </Route>
+
+      </Routes>
+    </BrowserRouter>
   );
 }
 

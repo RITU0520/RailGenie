@@ -1,0 +1,56 @@
+[
+  {
+    "train_id": "12001",
+    "train_name": "Demo Express",
+    "section": "S1",
+    "arrival": 130,
+    "departure": 145,
+    "priority": "normal",
+    "train_type": "passenger"
+  },
+  {
+    "train_id": "12002",
+    "train_name": "Morning Express",
+    "section": "S1",
+    "arrival": 220,
+    "departure": 235,
+    "priority": "normal",
+    "train_type": "passenger"
+  },
+  {
+    "train_id": "12003",
+    "train_name": "Intercity Express",
+    "section": "S2",
+    "arrival": 150,
+    "departure": 165,
+    "priority": "normal",
+    "train_type": "passenger"
+  },
+  {
+    "train_id": "12004",
+    "train_name": "Superfast Express",
+    "section": "S2",
+    "arrival": 300,
+    "departure": 315,
+    "priority": "high",
+    "train_type": "passenger"
+  },
+  {
+    "train_id": "12005",
+    "train_name": "Evening Express",
+    "section": "S3",
+    "arrival": 480,
+    "departure": 495,
+    "priority": "normal",
+    "train_type": "passenger"
+  },
+  {
+    "train_id": "12006",
+    "train_name": "Night Express",
+    "section": "S4",
+    "arrival": 660,
+    "departure": 675,
+    "priority": "normal",
+    "train_type": "passenger"
+  }
+]

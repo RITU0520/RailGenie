@@ -1,0 +1,58 @@
+[
+  {
+    "asset_id": "T-102",
+    "asset_type": "Track",
+    "asset_name": "Track Section T-102",
+    "section": "S1",
+    "status": "operational",
+    "criticality": "critical"
+  },
+  {
+    "asset_id": "SG-21",
+    "asset_type": "Signal",
+    "asset_name": "Signal SG-21",
+    "section": "S1",
+    "status": "operational",
+    "criticality": "high"
+  },
+  {
+    "asset_id": "O-44",
+    "asset_type": "OHE",
+    "asset_name": "OHE Equipment O-44",
+    "section": "S2",
+    "status": "operational",
+    "criticality": "high"
+  },
+  {
+    "asset_id": "T-118",
+    "asset_type": "Track",
+    "asset_name": "Track Section T-118",
+    "section": "S1",
+    "status": "operational",
+    "criticality": "low"
+  },
+  {
+    "asset_id": "SG-35",
+    "asset_type": "Signal",
+    "asset_name": "Signal SG-35",
+    "section": "S2",
+    "status": "operational",
+    "criticality": "medium"
+  },
+  {
+    "asset_id": "O-52",
+    "asset_type": "OHE",
+    "asset_name": "OHE Equipment O-52",
+    "section": "S3",
+    "status": "operational",
+    "criticality": "medium"
+  },
+  {
+    "asset_id": "T-205",
+    "asset_type": "Track",
+    "asset_name": "Track Section T-205",
+    "section": "S4",
+    "status": "operational",
+    "criticality": "high"
+  }
+]
