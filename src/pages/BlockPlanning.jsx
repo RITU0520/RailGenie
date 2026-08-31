@@ -1,4 +1,3 @@
-```jsx
 import React, { useEffect, useState } from "react";
 import {
   RefreshCw,
@@ -9,7 +8,8 @@ import {
 } from "lucide-react";
 
 const API_URL =
-  process.env.REACT_APP_API_URL || "http://127.0.0.1:8000";
+  process.env.REACT_APP_API_URL ||
+  "http://127.0.0.1:8000";
 
 function BlockPlanning() {
   const [tasks, setTasks] = useState([]);
@@ -38,21 +38,27 @@ function BlockPlanning() {
 
       try {
         const tasksResponse = await fetch(
-          `${API_URL}/api/maintenance-tasks`
+          API_URL + "/api/maintenance-tasks"
         );
 
         const trainsResponse = await fetch(
-          `${API_URL}/api/trains`
+          API_URL + "/api/trains"
         );
 
-        if (!tasksResponse.ok || !trainsResponse.ok) {
+        if (
+          !tasksResponse.ok ||
+          !trainsResponse.ok
+        ) {
           throw new Error(
             "Unable to load planning data."
           );
         }
 
-        const tasksData = await tasksResponse.json();
-        const trainsData = await trainsResponse.json();
+        const tasksData =
+          await tasksResponse.json();
+
+        const trainsData =
+          await trainsResponse.json();
 
         setTasks(tasksData.tasks || []);
         setTrains(trainsData.trains || []);
@@ -86,7 +92,7 @@ function BlockPlanning() {
 
     try {
       const response = await fetch(
-        `${API_URL}/api/optimize`,
+        API_URL + "/api/optimize",
         {
           method: "POST",
 
@@ -97,27 +103,37 @@ function BlockPlanning() {
           body: JSON.stringify({
             planning_date: "2026-08-27",
 
-            planning_start: Number(planningStart),
+            planning_start:
+              Number(planningStart),
 
-            planning_end: Number(planningEnd),
+            planning_end:
+              Number(planningEnd),
 
-            maintenance_tasks: maintenanceTasks,
+            maintenance_tasks:
+              maintenanceTasks,
 
-            train_movements: trainMovements,
+            train_movements:
+              trainMovements,
 
-            safety_buffer_before: Number(bufferBefore),
+            safety_buffer_before:
+              Number(bufferBefore),
 
-            safety_buffer_after: Number(bufferAfter),
+            safety_buffer_after:
+              Number(bufferAfter),
           }),
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
-        let message = "Optimization failed.";
+        let message =
+          "Optimization failed.";
 
-        if (typeof data.detail === "string") {
+        if (
+          typeof data.detail === "string"
+        ) {
           message = data.detail;
         } else if (
           data.detail &&
@@ -133,7 +149,9 @@ function BlockPlanning() {
         throw new Error(message);
       }
 
-      if (data.status === "infeasible") {
+      if (
+        data.status === "infeasible"
+      ) {
         setSchedule([]);
         setScore(null);
 
@@ -143,8 +161,13 @@ function BlockPlanning() {
         );
       }
 
-      setSchedule(data.schedule || []);
-      setScore(data.score || null);
+      setSchedule(
+        data.schedule || []
+      );
+
+      setScore(
+        data.score || null
+      );
     } catch (err) {
       console.error(err);
 
@@ -183,21 +206,27 @@ function BlockPlanning() {
 
     try {
       const tasksResponse = await fetch(
-        `${API_URL}/api/maintenance-tasks`
+        API_URL + "/api/maintenance-tasks"
       );
 
       const trainsResponse = await fetch(
-        `${API_URL}/api/trains`
+        API_URL + "/api/trains"
       );
 
-      if (!tasksResponse.ok || !trainsResponse.ok) {
+      if (
+        !tasksResponse.ok ||
+        !trainsResponse.ok
+      ) {
         throw new Error(
           "Unable to refresh planning data."
         );
       }
 
-      const tasksData = await tasksResponse.json();
-      const trainsData = await trainsResponse.json();
+      const tasksData =
+        await tasksResponse.json();
+
+      const trainsData =
+        await trainsResponse.json();
 
       const loadedTasks =
         tasksData.tasks || [];
@@ -238,12 +267,16 @@ function BlockPlanning() {
       return "--:--";
     }
 
-    const hours = Math.floor(minutes / 60);
+    const hours = Math.floor(
+      minutes / 60
+    );
+
     const mins = minutes % 60;
 
     return (
-      `${String(hours).padStart(2, "0")}:` +
-      `${String(mins).padStart(2, "0")}`
+      String(hours).padStart(2, "0") +
+      ":" +
+      String(mins).padStart(2, "0")
     );
   };
 
@@ -369,7 +402,9 @@ function BlockPlanning() {
             />
 
             <small>
-              {formatTime(planningStart)}
+              {formatTime(
+                planningStart
+              )}
             </small>
           </div>
 
@@ -391,7 +426,9 @@ function BlockPlanning() {
             />
 
             <small>
-              {formatTime(planningEnd)}
+              {formatTime(
+                planningEnd
+              )}
             </small>
           </div>
 
@@ -493,7 +530,9 @@ function BlockPlanning() {
             }
             type="green"
             label="Plan Score"
-            value={`${score.score}%`}
+            value={
+              String(score.score) + "%"
+            }
             description="Overall optimization quality"
           />
 
@@ -503,7 +542,11 @@ function BlockPlanning() {
             }
             type="green"
             label="Safety Score"
-            value={`${score.safety_score}%`}
+            value={
+              String(
+                score.safety_score
+              ) + "%"
+            }
             description="Protected train intervals"
           />
 
@@ -513,7 +556,11 @@ function BlockPlanning() {
             }
             type="orange"
             label="Train Impact"
-            value={`${score.train_impact} min`}
+            value={
+              String(
+                score.train_impact
+              ) + " min"
+            }
             description="Operational disruption"
           />
 
@@ -523,7 +570,11 @@ function BlockPlanning() {
             }
             type="blue"
             label="Priority Score"
-            value={`${score.priority_score}%`}
+            value={
+              String(
+                score.priority_score
+              ) + "%"
+            }
             description="Priority-aware planning"
           />
         </section>
@@ -590,9 +641,12 @@ function BlockPlanning() {
               </span>
 
               <span
-                className={`priority ${priorityClass(
-                  item.priority
-                )}`}
+                className={
+                  "priority " +
+                  priorityClass(
+                    item.priority
+                  )
+                }
               >
                 {item.priority}
               </span>
@@ -600,20 +654,21 @@ function BlockPlanning() {
           ))}
         </div>
 
-        {schedule.length === 0 && !error && (
-          <div className="analysis-empty">
-            <AlertTriangle size={30} />
+        {schedule.length === 0 &&
+          !error && (
+            <div className="analysis-empty">
+              <AlertTriangle size={30} />
 
-            <strong>
-              No schedule generated
-            </strong>
+              <strong>
+                No schedule generated
+              </strong>
 
-            <span>
-              Run the optimizer to generate
-              maintenance blocks.
-            </span>
-          </div>
-        )}
+              <span>
+                Run the optimizer to generate
+                maintenance blocks.
+              </span>
+            </div>
+          )}
       </section>
 
       {/* SAFETY INFORMATION */}
@@ -656,7 +711,9 @@ function StatCard({
   return (
     <div className="stat-card">
       <div
-        className={`stat-icon ${type}`}
+        className={
+          "stat-icon " + type
+        }
       >
         {icon}
       </div>
@@ -679,4 +736,4 @@ function StatCard({
 }
 
 export default BlockPlanning;
-```
+
