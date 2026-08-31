@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   TrainFront,
   Wrench,
@@ -16,40 +16,40 @@ function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [score, setScore] = useState(null);
+  const [runId, setRunId] = useState(null);
+  const [status, setStatus] = useState(null);
+  const [createdAt, setCreatedAt] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
   // =====================================================
-  // LOAD DASHBOARD DATA
+  // LOAD DASHBOARD DATA FROM POSTGRESQL
   // =====================================================
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
-
-  const loadDashboard = async () => {
-    setLoading(true);
-    setError("");
-
+  const loadDashboard = useCallback(async () => {
     try {
+      setLoading(true);
+      setError("");
+
       const [
         trainsResponse,
         tasksResponse,
+        scheduleResponse,
       ] = await Promise.all([
         fetch(`${API_URL}/api/trains`),
-        fetch(
-          `${API_URL}/api/maintenance-tasks`
-        ),
+        fetch(`${API_URL}/api/maintenance-tasks`),
+        fetch(`${API_URL}/api/schedule/latest`),
       ]);
 
       if (
         !trainsResponse.ok ||
-        !tasksResponse.ok
+        !tasksResponse.ok ||
+        !scheduleResponse.ok
       ) {
         throw new Error(
-          "Unable to load RailGenie data."
+          "Unable to load RailGenie dashboard data."
         );
       }
 
@@ -58,6 +58,9 @@ function Dashboard() {
 
       const tasksData =
         await tasksResponse.json();
+
+      const scheduleData =
+        await scheduleResponse.json();
 
       const loadedTrains =
         trainsData.trains || [];
@@ -68,58 +71,34 @@ function Dashboard() {
       setTrains(loadedTrains);
       setTasks(loadedTasks);
 
-      // -------------------------------------------------
-      // Run real optimizer
-      // -------------------------------------------------
-
-      const optimizeResponse =
-        await fetch(
-          `${API_URL}/api/optimize`,
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body: JSON.stringify({
-              planning_date:
-                "2026-08-27",
-
-              planning_start: 0,
-
-              planning_end: 1439,
-
-              maintenance_tasks:
-                loadedTasks,
-
-              train_movements:
-                loadedTrains,
-
-              safety_buffer_before: 10,
-
-              safety_buffer_after: 10,
-            }),
-          }
-        );
-
-      const optimizeData =
-        await optimizeResponse.json();
-
-      if (!optimizeResponse.ok) {
-        throw new Error(
-          optimizeData.detail?.message ||
-            "Optimizer request failed."
-        );
-      }
-
       setSchedule(
-        optimizeData.schedule || []
+        scheduleData.schedule || []
       );
 
       setScore(
-        optimizeData.score || null
+        scheduleData.score !== undefined
+          ? {
+              score: Number(scheduleData.score),
+              priority_score:
+                scheduleData.priority_score ?? null,
+              train_impact:
+                scheduleData.train_impact ?? 0,
+              safety_score:
+                scheduleData.safety_score ?? null,
+            }
+          : null
+      );
+
+      setRunId(
+        scheduleData.run_id ?? null
+      );
+
+      setStatus(
+        scheduleData.status ?? null
+      );
+
+      setCreatedAt(
+        scheduleData.created_at ?? null
       );
 
     } catch (err) {
@@ -133,7 +112,37 @@ function Dashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
+
+  // =====================================================
+  // INITIAL LOAD
+  // =====================================================
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  // =====================================================
+  // REFRESH WHEN WINDOW REGAINS FOCUS
+  // =====================================================
+
+  useEffect(() => {
+    const handleFocus = () => {
+      loadDashboard();
+    };
+
+    window.addEventListener(
+      "focus",
+      handleFocus
+    );
+
+    return () => {
+      window.removeEventListener(
+        "focus",
+        handleFocus
+      );
+    };
+  }, [loadDashboard]);
 
   // =====================================================
   // REFRESH
@@ -287,7 +296,9 @@ function Dashboard() {
               }
             />
 
-            Refresh
+            {refreshing
+              ? "Refreshing..."
+              : "Refresh"}
           </button>
 
           <div className="profile">
@@ -332,17 +343,21 @@ function Dashboard() {
 
         <StatCard
           icon={
-            <TrainFront size={21} />
+            <TrainFront
+              size={21}
+            />
           }
           type="blue"
           label="Active Trains"
           value={trains.length}
-          description="Loaded from railway data"
+          description="Loaded from PostgreSQL"
         />
 
         <StatCard
           icon={
-            <Wrench size={21} />
+            <Wrench
+              size={21}
+            />
           }
           type="orange"
           label="Maintenance Tasks"
@@ -375,7 +390,11 @@ function Dashboard() {
               ? `${score.score}%`
               : "—"
           }
-          description="Current optimized plan"
+          description={
+            runId
+              ? `Run #${runId}`
+              : "No run available"
+          }
         />
 
       </section>
@@ -388,12 +407,15 @@ function Dashboard() {
 
         <StatCard
           icon={
-            <ShieldCheck size={21} />
+            <ShieldCheck
+              size={21}
+            />
           }
           type="green"
           label="Safety Score"
           value={
-            score
+            score?.safety_score !== null &&
+            score?.safety_score !== undefined
               ? `${score.safety_score}%`
               : "—"
           }
@@ -402,12 +424,15 @@ function Dashboard() {
 
         <StatCard
           icon={
-            <BarChart3 size={21} />
+            <BarChart3
+              size={21}
+            />
           }
           type="blue"
           label="Priority Score"
           value={
-            score
+            score?.priority_score !== null &&
+            score?.priority_score !== undefined
               ? `${score.priority_score}%`
               : "—"
           }
@@ -416,7 +441,9 @@ function Dashboard() {
 
         <StatCard
           icon={
-            <TrainFront size={21} />
+            <TrainFront
+              size={21}
+            />
           }
           type="orange"
           label="Train Impact"
@@ -430,13 +457,13 @@ function Dashboard() {
 
         <StatCard
           icon={
-            <Wrench size={21} />
+            <Wrench
+              size={21}
+            />
           }
           type="blue"
           label="Maintenance Time"
-          value={
-            `${totalMaintenanceMinutes} min`
-          }
+          value={`${totalMaintenanceMinutes} min`}
           description="Total optimized work"
         />
 
@@ -448,26 +475,29 @@ function Dashboard() {
 
       <section className="dashboard-grid">
 
-        {/* --------------------------------------------- */}
         {/* SYSTEM OVERVIEW */}
-        {/* --------------------------------------------- */}
 
         <div className="card">
 
           <div className="card-header">
 
             <div>
+
               <h3>
                 Optimization Overview
               </h3>
 
               <p>
-                Current railway maintenance plan
+                Current applied railway
+                maintenance plan
               </p>
+
             </div>
 
             <span className="recommended-badge">
-              AI OPTIMIZED
+              {status
+                ? status.toUpperCase()
+                : "AI OPTIMIZED"}
             </span>
 
           </div>
@@ -492,7 +522,8 @@ function Dashboard() {
             <OverviewMetric
               label="Safety"
               value={
-                score
+                score?.safety_score !== null &&
+                score?.safety_score !== undefined
                   ? `${score.safety_score}%`
                   : "—"
               }
@@ -502,33 +533,40 @@ function Dashboard() {
 
           <div className="dashboard-status">
 
-            <CheckCircle2 size={20} />
+            <CheckCircle2
+              size={20}
+            />
 
             <div>
+
               <strong>
-                Optimization engine ready
+                {runId
+                  ? `Optimization Run #${runId} active`
+                  : "Optimization engine ready"}
               </strong>
 
               <span>
-                Maintenance scheduling is being
-                calculated using train conflicts,
-                safety buffers and task priority.
+                {createdAt
+                  ? `Latest schedule generated ${new Date(
+                      createdAt
+                    ).toLocaleString()}.`
+                  : "Maintenance scheduling uses train conflicts, safety buffers and task priority."}
               </span>
+
             </div>
 
           </div>
 
         </div>
 
-        {/* --------------------------------------------- */}
         {/* PRIORITY TASKS */}
-        {/* --------------------------------------------- */}
 
         <div className="card">
 
           <div className="card-header">
 
             <div>
+
               <h3>
                 Priority Tasks
               </h3>
@@ -536,6 +574,7 @@ function Dashboard() {
               <p>
                 Highest-priority maintenance work
               </p>
+
             </div>
 
             <span className="count-badge">
@@ -569,6 +608,7 @@ function Dashboard() {
             .slice(0, 5)
             .map(
               (task) => (
+
                 <div
                   className="task"
                   key={
@@ -604,6 +644,7 @@ function Dashboard() {
                   </span>
 
                 </div>
+
               )
             )}
 
@@ -620,13 +661,17 @@ function Dashboard() {
         <div className="card-header">
 
           <div>
+
             <h3>
-              Today's Optimized Schedule
+              Latest Applied Schedule
             </h3>
 
             <p>
-              Maintenance blocks generated by the optimizer
+              {runId
+                ? `PostgreSQL Run #${runId}`
+                : "No applied schedule"}
             </p>
+
           </div>
 
           <span className="recommended-badge">
@@ -667,6 +712,7 @@ function Dashboard() {
 
           {schedule.map(
             (item) => (
+
               <div
                 className="analytics-table-row"
                 key={
@@ -709,6 +755,7 @@ function Dashboard() {
                 </span>
 
               </div>
+
             )
           )}
 
@@ -726,8 +773,8 @@ function Dashboard() {
             </strong>
 
             <span>
-              The optimizer did not return a
-              feasible schedule.
+              Apply an optimized schedule
+              from the Assistant.
             </span>
 
           </div>
@@ -743,7 +790,9 @@ function Dashboard() {
 
         <div className="analytics-summary-item">
 
-          <ShieldCheck size={20} />
+          <ShieldCheck
+            size={20}
+          />
 
           <div>
 
@@ -752,8 +801,8 @@ function Dashboard() {
             </strong>
 
             <span>
-              10-minute protection before and
-              after train movements.
+              10-minute protection before
+              and after train movements.
             </span>
 
           </div>
@@ -762,7 +811,9 @@ function Dashboard() {
 
         <div className="analytics-summary-item">
 
-          <TrainFront size={20} />
+          <TrainFront
+            size={20}
+          />
 
           <div>
 
@@ -771,8 +822,8 @@ function Dashboard() {
             </strong>
 
             <span>
-              Loaded from the RailGenie railway
-              movement dataset.
+              Loaded from PostgreSQL
+              railway movement data.
             </span>
 
           </div>
@@ -781,7 +832,9 @@ function Dashboard() {
 
         <div className="analytics-summary-item">
 
-          <Wrench size={20} />
+          <Wrench
+            size={20}
+          />
 
           <div>
 
@@ -802,7 +855,6 @@ function Dashboard() {
     </>
   );
 }
-
 
 // =========================================================
 // STAT CARD
@@ -844,7 +896,6 @@ function StatCard({
   );
 }
 
-
 // =========================================================
 // OVERVIEW METRIC
 // =========================================================
@@ -867,6 +918,5 @@ function OverviewMetric({
     </div>
   );
 }
-
 
 export default Dashboard;

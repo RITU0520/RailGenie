@@ -1,640 +1,328 @@
-import React, { useEffect, useState } from "react";
-import {
-  CalendarClock,
-  RefreshCw,
-  CheckCircle2,
-  AlertTriangle,
-} from "lucide-react";
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
-const API_URL = "http://127.0.0.1:8000";
+function formatTime(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(
+    mins
+  ).padStart(2, "0")}`;
+}
 
 function OptimizedSchedule() {
-  const [tasks, setTasks] = useState([]);
-  const [trains, setTrains] = useState([]);
-
-  const [schedule, setSchedule] = useState([]);
-  const [score, setScore] = useState(null);
-
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    generateSchedule();
-  }, []);
-
-  const generateSchedule = async () => {
-    setLoading(true);
-    setError("");
-
+  const fetchSchedule = useCallback(async () => {
     try {
-      // -----------------------------------------------------
-      // Load backend data
-      // -----------------------------------------------------
-
-      const [
-        tasksResponse,
-        trainsResponse,
-      ] = await Promise.all([
-        fetch(
-          `${API_URL}/api/maintenance-tasks`
-        ),
-        fetch(
-          `${API_URL}/api/trains`
-        ),
-      ]);
-
-      if (
-        !tasksResponse.ok ||
-        !trainsResponse.ok
-      ) {
-        throw new Error(
-          "Unable to load railway data."
-        );
-      }
-
-      const tasksData =
-        await tasksResponse.json();
-
-      const trainsData =
-        await trainsResponse.json();
-
-      const backendTasks =
-        tasksData.tasks || [];
-
-      const backendTrains =
-        trainsData.trains || [];
-
-      setTasks(backendTasks);
-      setTrains(backendTrains);
-
-      // -----------------------------------------------------
-      // Build multi-task optimization request
-      // -----------------------------------------------------
-
-      const requestBody = {
-        planning_date: "2026-08-27",
-
-        planning_start: 0,
-
-        planning_end: 1439,
-
-        safety_buffer_before: 10,
-
-        safety_buffer_after: 10,
-
-        maintenance_tasks:
-          backendTasks,
-
-        train_movements:
-          backendTrains,
-      };
-
-      // -----------------------------------------------------
-      // Run optimizer
-      // -----------------------------------------------------
+      setLoading(true);
+      setError("");
 
       const response = await fetch(
-        `${API_URL}/api/optimize`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body:
-            JSON.stringify(requestBody),
-        }
+        "http://127.0.0.1:8000/api/schedule/latest"
       );
-
-      const data =
-        await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data?.detail?.message ||
-            "Unable to generate schedule."
+          "Failed to load optimized schedule"
         );
       }
 
-      setSchedule(
-        data.schedule || []
-      );
+      const result = await response.json();
 
-      setScore(
-        data.score || null
-      );
-
+      setData(result);
     } catch (err) {
-      console.error(err);
-
-      setError(
-        err.message ||
-          "Unable to generate optimized schedule."
-      );
-
+      setError(err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // =========================================================
-  // Helpers
-  // =========================================================
+  // Initial load
+  useEffect(() => {
+    fetchSchedule();
+  }, [fetchSchedule]);
 
-  const criticalTasks =
-    schedule.filter(
-      (task) =>
-        task.priority === "critical"
-    ).length;
+  // Refresh when browser tab becomes active
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchSchedule();
+    };
 
-  const totalDuration =
-    schedule.reduce(
-      (total, task) =>
-        total + task.duration,
-      0
+    window.addEventListener(
+      "focus",
+      handleFocus
     );
 
-  return (
-    <div>
+    return () => {
+      window.removeEventListener(
+        "focus",
+        handleFocus
+      );
+    };
+  }, [fetchSchedule]);
 
-      {/* ================================================= */}
-      {/* HEADER */}
-      {/* ================================================= */}
-
-      <header className="topbar">
-
-        <div>
-          <p className="eyebrow">
-            OPTIMIZATION
-          </p>
-
-          <h2>
-            Optimized Schedule
-          </h2>
+  if (loading && !data) {
+    return (
+      <div className="page">
+        <div className="page-header">
+          <div>
+            <h2>Optimized Schedule</h2>
+            <p>
+              Safety-aware maintenance schedule
+              generated by RailGenie
+            </p>
+          </div>
         </div>
 
-        <div className="topbar-right">
+        <div className="schedule-state">
+          Loading optimized schedule...
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <div className="page">
+        <div className="page-header">
+          <div>
+            <h2>Optimized Schedule</h2>
+            <p>
+              Safety-aware maintenance schedule
+              generated by RailGenie
+            </p>
+          </div>
+        </div>
+
+        <div className="schedule-error">
+          <strong>
+            Unable to load schedule
+          </strong>
+
+          <span>{error}</span>
+
+          <button onClick={fetchSchedule}>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data || !data.schedule?.length) {
+    return (
+      <div className="page">
+        <div className="page-header">
+          <div>
+            <h2>Optimized Schedule</h2>
+            <p>
+              Safety-aware maintenance schedule
+              generated by RailGenie
+            </p>
+          </div>
 
           <button
-            className="outline-button"
-            onClick={
-              generateSchedule
-            }
-            disabled={loading}
+            className="refresh-button"
+            onClick={fetchSchedule}
           >
-            <RefreshCw
-              size={14}
-              style={{
-                marginRight: 6,
-              }}
-            />
-
-            {loading
-              ? "Optimizing..."
-              : "Regenerate"}
+            Refresh
           </button>
-
-          <div className="profile">
-            RG
-          </div>
-
         </div>
 
-      </header>
-
-      {/* ================================================= */}
-      {/* ERROR */}
-      {/* ================================================= */}
-
-      {error && (
-        <div className="result-message error-message">
-
-          <AlertTriangle size={18} />
-
-          <div>
-            <strong>
-              Schedule generation failed
-            </strong>
-
-            <p>
-              {error}
-            </p>
-          </div>
-
+        <div className="schedule-state">
+          No optimized schedule available.
         </div>
-      )}
-
-      {/* ================================================= */}
-      {/* SUMMARY */}
-      {/* ================================================= */}
-
-      <div className="stats-grid">
-
-        <StatCard
-          label="Scheduled Tasks"
-          value={
-            loading
-              ? "—"
-              : schedule.length
-          }
-          detail="Maintenance blocks"
-        />
-
-        <StatCard
-          label="Critical Tasks"
-          value={
-            loading
-              ? "—"
-              : criticalTasks
-          }
-          detail="Priority protected"
-        />
-
-        <StatCard
-          label="Total Block Time"
-          value={
-            loading
-              ? "—"
-              : `${totalDuration} min`
-          }
-          detail="Scheduled maintenance"
-        />
-
-        <StatCard
-          label="Optimization Score"
-          value={
-            loading
-              ? "—"
-              : score
-              ? `${score.score}%`
-              : "—"
-          }
-          detail="RailGenie score"
-        />
-
       </div>
-
-      {/* ================================================= */}
-      {/* SCHEDULE CARD */}
-      {/* ================================================= */}
-
-      <section className="card schedule-card">
-
-        <div className="card-header">
-
-          <div>
-            <h3>
-              Recommended Maintenance Schedule
-            </h3>
-
-            <p>
-              Multi-task schedule generated by
-              the RailGenie optimization engine
-            </p>
-          </div>
-
-          {!loading &&
-            schedule.length > 0 && (
-              <span className="ai-badge">
-                OPTIMIZED
-              </span>
-            )}
-
-        </div>
-
-        {loading ? (
-
-          <div className="empty-result">
-
-            <CalendarClock
-              size={40}
-            />
-
-            <strong>
-              Generating optimized schedule...
-            </strong>
-
-            <span>
-              RailGenie is evaluating maintenance
-              tasks, train movements and safety
-              buffers.
-            </span>
-
-          </div>
-
-        ) : schedule.length === 0 ? (
-
-          <div className="empty-result">
-
-            <AlertTriangle
-              size={40}
-            />
-
-            <strong>
-              No feasible schedule
-            </strong>
-
-            <span>
-              RailGenie could not find a valid
-              schedule for the current constraints.
-            </span>
-
-          </div>
-
-        ) : (
-
-          <div className="schedule-table">
-
-            {/* Table header */}
-
-            <div className="table-row table-header">
-
-              <span>
-                Task
-              </span>
-
-              <span>
-                Asset
-              </span>
-
-              <span>
-                Section
-              </span>
-
-              <span>
-                Time
-              </span>
-
-              <span>
-                Duration
-              </span>
-
-              <span>
-                Priority
-              </span>
-
-            </div>
-
-            {/* Schedule rows */}
-
-            {schedule.map(
-              (item) => (
-                <div
-                  className="table-row"
-                  key={
-                    item.task_id
-                  }
-                >
-
-                  <strong>
-                    {item.task_id}
-                  </strong>
-
-                  <span>
-                    {item.asset_id}
-                  </span>
-
-                  <span>
-                    {item.section}
-                  </span>
-
-                  <strong>
-                    {formatTime(
-                      item.start
-                    )}
-                    {" – "}
-                    {formatTime(
-                      item.end
-                    )}
-                  </strong>
-
-                  <span>
-                    {item.duration} min
-                  </span>
-
-                  <PriorityBadge
-                    priority={
-                      item.priority
-                    }
-                  />
-
-                </div>
-              )
-            )}
-
-          </div>
-
-        )}
-
-      </section>
-
-      {/* ================================================= */}
-      {/* SCORE DETAILS */}
-      {/* ================================================= */}
-
-      {score && !loading && (
-        <section className="card">
-
-          <div className="card-header">
-
-            <div>
-              <h3>
-                Optimization Quality
-              </h3>
-
-              <p>
-                Evaluation of the generated schedule
-              </p>
-            </div>
-
-          </div>
-
-          <div className="result-grid">
-
-            <Metric
-              label="Overall Score"
-              value={`${score.score}%`}
-              good
-            />
-
-            <Metric
-              label="Priority Score"
-              value={`${score.priority_score}%`}
-              good
-            />
-
-            <Metric
-              label="Train Impact"
-              value={`${score.train_impact} min`}
-              good={
-                score.train_impact === 0
-              }
-            />
-
-            <Metric
-              label="Safety Score"
-              value={`${score.safety_score}%`}
-              good={
-                score.safety_score === 100
-              }
-            />
-
-          </div>
-
-          <div className="result-message">
-
-            <CheckCircle2 size={18} />
-
-            <div>
-
-              <strong>
-                Schedule validated
-              </strong>
-
-              <p>
-                The schedule was generated
-                using maintenance availability,
-                section conflicts, train movements,
-                priority and safety-buffer constraints.
-              </p>
-
-            </div>
-
-          </div>
-
-        </section>
-      )}
-
-    </div>
-  );
-}
-
-
-// =========================================================
-// Stat Card
-// =========================================================
-
-function StatCard({
-  label,
-  value,
-  detail,
-}) {
-  return (
-    <div className="stat-card">
-
-      <div className="stat-icon blue">
-        <CalendarClock
-          size={20}
-        />
-      </div>
-
-      <div className="stat-content">
-
-        <span>
-          {label}
-        </span>
-
-        <strong>
-          {value}
-        </strong>
-
-        <small>
-          {detail}
-        </small>
-
-      </div>
-
-    </div>
-  );
-}
-
-
-// =========================================================
-// Priority Badge
-// =========================================================
-
-function PriorityBadge({
-  priority,
-}) {
-  const normalized =
-    priority?.toLowerCase() ||
-    "low";
-
-  return (
-    <span
-      className={`priority ${normalized}`}
-    >
-      {capitalize(
-        normalized
-      )}
-    </span>
-  );
-}
-
-
-// =========================================================
-// Metric
-// =========================================================
-
-function Metric({
-  label,
-  value,
-  good,
-}) {
-  return (
-    <div className="result-metric">
-
-      <span>
-        {label}
-      </span>
-
-      <strong
-        className={
-          good
-            ? "good-value"
-            : ""
-        }
-      >
-        {value}
-      </strong>
-
-    </div>
-  );
-}
-
-
-// =========================================================
-// Helpers
-// =========================================================
-
-function formatTime(totalMinutes) {
-  const hours =
-    Math.floor(
-      totalMinutes / 60
     );
-
-  const minutes =
-    totalMinutes % 60;
-
-  return (
-    `${String(hours).padStart(2, "0")}:` +
-    `${String(minutes).padStart(2, "0")}`
-  );
-}
-
-
-function capitalize(value) {
-  if (!value) {
-    return "";
   }
 
   return (
-    value.charAt(0).toUpperCase() +
-    value.slice(1)
+    <div className="page">
+
+      {/* HEADER */}
+
+      <div className="page-header">
+
+        <div>
+          <h2>
+            Optimized Schedule
+          </h2>
+
+          <p>
+            Safety-aware maintenance schedule
+            generated by RailGenie
+          </p>
+        </div>
+
+        <div className="schedule-header-actions">
+
+          <span className="schedule-status">
+            ● {data.status}
+          </span>
+
+          <button
+            className="refresh-button"
+            onClick={fetchSchedule}
+            disabled={loading}
+          >
+            {loading
+              ? "Refreshing..."
+              : "Refresh"}
+          </button>
+
+        </div>
+
+      </div>
+
+      {/* ERROR WHILE REFRESHING */}
+
+      {error && (
+        <div className="schedule-error">
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* SUMMARY */}
+
+      <div className="schedule-summary">
+
+        <div className="schedule-summary-card">
+          <span>Run</span>
+          <strong>
+            #{data.run_id}
+          </strong>
+        </div>
+
+        <div className="schedule-summary-card">
+          <span>Score</span>
+          <strong>
+            {data.score}
+          </strong>
+        </div>
+
+        <div className="schedule-summary-card">
+          <span>Tasks</span>
+          <strong>
+            {data.schedule.length}
+          </strong>
+        </div>
+
+        <div className="schedule-summary-card">
+          <span>Source</span>
+          <strong>
+            PostgreSQL
+          </strong>
+        </div>
+
+      </div>
+
+      {/* SCHEDULE TABLE */}
+
+      <section className="schedule-panel">
+
+        <div className="schedule-panel-header">
+
+          <div>
+            <h3>
+              Maintenance Schedule
+            </h3>
+
+            <p>
+              Run #{data.run_id} · Generated{" "}
+              {data.created_at
+                ? new Date(
+                    data.created_at
+                  ).toLocaleString()
+                : "—"}
+            </p>
+          </div>
+
+        </div>
+
+        <div className="schedule-table-wrapper">
+
+          <table className="schedule-table">
+
+            <thead>
+              <tr>
+                <th>Task</th>
+                <th>Asset</th>
+                <th>Section</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Duration</th>
+                <th>Priority</th>
+              </tr>
+            </thead>
+
+            <tbody>
+
+              {data.schedule.map(
+                (item) => (
+
+                  <tr
+                    key={item.task_id}
+                  >
+
+                    <td>
+                      <strong>
+                        {item.task_id}
+                      </strong>
+                    </td>
+
+                    <td>
+                      {item.asset_id}
+                    </td>
+
+                    <td>
+                      {item.section}
+                    </td>
+
+                    <td className="time-cell">
+                      {formatTime(
+                        item.start
+                      )}
+                    </td>
+
+                    <td className="time-cell">
+                      {formatTime(
+                        item.end
+                      )}
+                    </td>
+
+                    <td>
+                      {item.duration} min
+                    </td>
+
+                    <td>
+                      <span
+                        className={`priority-badge priority-${item.priority}`}
+                      >
+                        {item.priority}
+                      </span>
+                    </td>
+
+                  </tr>
+
+                )
+              )}
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+      </section>
+
+    </div>
   );
 }
-
 
 export default OptimizedSchedule;

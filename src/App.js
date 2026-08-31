@@ -13,6 +13,7 @@ import BlockPlanning from "./pages/BlockPlanning";
 import OptimizedSchedule from "./pages/OptimizedSchedule";
 import WhatIfSimulator from "./pages/WhatIfSimulator";
 import Analytics from "./pages/Analytics";
+import Assistant from "./pages/Assistant";
 
 import "./App.css";
 
@@ -55,6 +56,11 @@ function App() {
           <Route
             path="/analytics"
             element={<Analytics />}
+          />
+
+          <Route
+            path="/assistant"
+            element={<Assistant />}
           />
 
         </Route>
