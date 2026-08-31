@@ -1,3 +1,4 @@
+```jsx
 import React, { useEffect, useState } from "react";
 import {
   RefreshCw,
@@ -7,7 +8,10 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-const API_URL = "http://127.0.0.1:8000";
+// Use Vercel environment variable in production.
+// Local development falls back to the Python backend.
+const API_URL =
+  process.env.REACT_APP_API_URL || "http://127.0.0.1:8000";
 
 function BlockPlanning() {
   const [tasks, setTasks] = useState([]);
@@ -25,73 +29,66 @@ function BlockPlanning() {
   const [optimizing, setOptimizing] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    loadPlanningData();
-  }, []);
-
   // =====================================================
   // LOAD DATA
   // =====================================================
 
-  const loadPlanningData = async () => {
-    setLoading(true);
-    setError("");
+  useEffect(() => {
+    let cancelled = false;
 
-    try {
-      const [
-        tasksResponse,
-        trainsResponse,
-      ] = await Promise.all([
-        fetch(
-          `${API_URL}/api/maintenance-tasks`
-        ),
-        fetch(
-          `${API_URL}/api/trains`
-        ),
-      ]);
+    const loadData = async () => {
+      setLoading(true);
+      setError("");
 
-      if (
-        !tasksResponse.ok ||
-        !trainsResponse.ok
-      ) {
-        throw new Error(
-          "Unable to load planning data."
+      try {
+        const [tasksResponse, trainsResponse] =
+          await Promise.all([
+            fetch(`${API_URL}/api/maintenance-tasks`),
+            fetch(`${API_URL}/api/trains`),
+          ]);
+
+        if (!tasksResponse.ok || !trainsResponse.ok) {
+          throw new Error(
+            "Unable to load planning data."
+          );
+        }
+
+        const tasksData =
+          await tasksResponse.json();
+
+        const trainsData =
+          await trainsResponse.json();
+
+        if (cancelled) {
+          return;
+        }
+
+        setTasks(tasksData.tasks || []);
+        setTrains(trainsData.trains || []);
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error(err);
+
+        setError(
+          err.message ||
+            "Unable to load planning data."
         );
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
+    };
 
-      const tasksData =
-        await tasksResponse.json();
+    loadData();
 
-      const trainsData =
-        await trainsResponse.json();
-
-      const loadedTasks =
-        tasksData.tasks || [];
-
-      const loadedTrains =
-        trainsData.trains || [];
-
-      setTasks(loadedTasks);
-      setTrains(loadedTrains);
-
-      // Automatically generate initial schedule.
-      await runOptimization(
-        loadedTasks,
-        loadedTrains,
-        10,
-        10
-      );
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        err.message ||
-          "Unable to load planning data."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // =====================================================
   // OPTIMIZE
@@ -113,13 +110,11 @@ function BlockPlanning() {
           method: "POST",
 
           headers: {
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
 
           body: JSON.stringify({
-            planning_date:
-              "2026-08-27",
+            planning_date: "2026-08-27",
 
             planning_start:
               Number(planningStart),
@@ -149,8 +144,18 @@ function BlockPlanning() {
         const detail =
           data.detail || data;
 
+        if (
+          typeof detail === "object" &&
+          detail !== null
+        ) {
+          throw new Error(
+            detail.message ||
+              "Optimization failed."
+          );
+        }
+
         throw new Error(
-          detail.message ||
+          detail ||
             "Optimization failed."
         );
       }
@@ -206,8 +211,63 @@ function BlockPlanning() {
   // REFRESH
   // =====================================================
 
-  const handleRefresh = () => {
-    loadPlanningData();
+  const handleRefresh = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const [
+        tasksResponse,
+        trainsResponse,
+      ] = await Promise.all([
+        fetch(
+          `${API_URL}/api/maintenance-tasks`
+        ),
+        fetch(
+          `${API_URL}/api/trains`
+        ),
+      ]);
+
+      if (
+        !tasksResponse.ok ||
+        !trainsResponse.ok
+      ) {
+        throw new Error(
+          "Unable to refresh planning data."
+        );
+      }
+
+      const tasksData =
+        await tasksResponse.json();
+
+      const trainsData =
+        await trainsResponse.json();
+
+      const loadedTasks =
+        tasksData.tasks || [];
+
+      const loadedTrains =
+        trainsData.trains || [];
+
+      setTasks(loadedTasks);
+      setTrains(loadedTrains);
+
+      await runOptimization(
+        loadedTasks,
+        loadedTrains,
+        safetyBefore,
+        safetyAfter
+      );
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err.message ||
+          "Unable to refresh planning data."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   // =====================================================
@@ -355,7 +415,6 @@ function BlockPlanning() {
         </div>
 
         <div className="planning-controls">
-
           <div className="planning-field">
             <label>
               Planning Start
@@ -461,11 +520,9 @@ function BlockPlanning() {
               minutes
             </small>
           </div>
-
         </div>
 
         <div className="planning-actions">
-
           <div className="planning-data-summary">
             <span>
               {tasks.length} maintenance tasks
@@ -512,7 +569,6 @@ function BlockPlanning() {
               </>
             )}
           </button>
-
         </div>
       </section>
 
@@ -522,7 +578,6 @@ function BlockPlanning() {
 
       {score && (
         <section className="stats-grid">
-
           <StatCard
             icon={
               <CheckCircle2
@@ -578,7 +633,6 @@ function BlockPlanning() {
             }
             description="Priority-aware planning"
           />
-
         </section>
       )}
 
@@ -587,9 +641,7 @@ function BlockPlanning() {
       {/* ================================================= */}
 
       <section className="card schedule-card">
-
         <div className="card-header">
-
           <div>
             <h3>
               Optimized Maintenance Blocks
@@ -604,13 +656,10 @@ function BlockPlanning() {
           <span className="recommended-badge">
             {schedule.length} BLOCKS
           </span>
-
         </div>
 
         <div className="block-planning-table">
-
           <div className="block-planning-header">
-
             <span>
               Task
             </span>
@@ -638,7 +687,6 @@ function BlockPlanning() {
             <span>
               Priority
             </span>
-
           </div>
 
           {schedule.map(
@@ -649,7 +697,6 @@ function BlockPlanning() {
                   item.task_id
                 }
               >
-
                 <strong>
                   {item.task_id}
                 </strong>
@@ -685,17 +732,14 @@ function BlockPlanning() {
                 >
                   {item.priority}
                 </span>
-
               </div>
             )
           )}
-
         </div>
 
         {schedule.length === 0 &&
           !error && (
             <div className="analysis-empty">
-
               <AlertTriangle
                 size={30}
               />
@@ -708,10 +752,8 @@ function BlockPlanning() {
                 Run the optimizer to generate
                 maintenance blocks.
               </span>
-
             </div>
           )}
-
       </section>
 
       {/* ================================================= */}
@@ -719,7 +761,6 @@ function BlockPlanning() {
       {/* ================================================= */}
 
       <section className="card planning-safety-card">
-
         <div className="planning-safety-icon">
           <ShieldCheck
             size={22}
@@ -740,12 +781,10 @@ function BlockPlanning() {
             after each train movement.
           </p>
         </div>
-
       </section>
     </>
   );
 }
-
 
 // =========================================================
 // STAT CARD
@@ -760,7 +799,6 @@ function StatCard({
 }) {
   return (
     <div className="stat-card">
-
       <div
         className={`stat-icon ${type}`}
       >
@@ -768,7 +806,6 @@ function StatCard({
       </div>
 
       <div className="stat-content">
-
         <span>
           {label}
         </span>
@@ -780,12 +817,10 @@ function StatCard({
         <small>
           {description}
         </small>
-
       </div>
-
     </div>
   );
 }
 
-
 export default BlockPlanning;
+```
