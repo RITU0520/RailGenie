@@ -1,0 +1,143 @@
+.railgenie-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at center, rgba(37, 99, 235, 0.16), transparent 42%),
+    #07111f;
+  color: #fff;
+  animation: splashExit 0.7s ease 1.7s forwards;
+}
+
+.railgenie-logo {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  animation: logoEntrance 0.9s ease-out both;
+}
+
+.railgenie-logo-mark {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border: 2px solid rgba(96, 165, 250, 0.75);
+  border-radius: 18px;
+  transform: rotate(-2deg);
+  box-shadow: 0 0 35px rgba(59, 130, 246, 0.28);
+}
+
+.rail-line {
+  position: absolute;
+  left: 15px;
+  right: 15px;
+  height: 3px;
+  border-radius: 5px;
+  background: #60a5fa;
+  transform: rotate(-25deg);
+}
+
+.rail-line-1 {
+  top: 25px;
+}
+
+.rail-line-2 {
+  top: 43px;
+}
+
+.rail-train {
+  position: absolute;
+  top: 22px;
+  left: 29px;
+  font-size: 18px;
+  transform: rotate(45deg);
+  color: #fff;
+}
+
+.railgenie-brand h1 {
+  margin: 0;
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: -1.5px;
+}
+
+.railgenie-brand p {
+  margin: 5px 0 0;
+  color: #94a3b8;
+  font-size: 15px;
+  letter-spacing: 1.5px;
+}
+
+.railgenie-loading {
+  width: 190px;
+  height: 3px;
+  margin-top: 48px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.railgenie-loading span {
+  display: block;
+  width: 55%;
+  height: 100%;
+  border-radius: inherit;
+  background: #60a5fa;
+  animation: loading 1.3s ease-in-out infinite;
+}
+
+.railgenie-tagline {
+  margin-top: 18px;
+  color: #64748b;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+@keyframes logoEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes loading {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  100% {
+    transform: translateX(190%);
+  }
+}
+
+@keyframes splashExit {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .railgenie-logo {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .railgenie-brand h1 {
+    font-size: 38px;
+  }
+
+  .railgenie-brand p {
+    font-size: 12px;
+  }
+}

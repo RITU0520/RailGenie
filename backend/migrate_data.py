@@ -36,16 +36,18 @@ def migrate():
                 cur.execute(
                     """
                     INSERT INTO trains
-                        (train_id, section, arrival, departure)
+                        (train_id, train_name, section, arrival, departure, data_source)
                     VALUES
-                        (%s, %s, %s, %s)
+                        (%s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (train_id) DO NOTHING
                     """,
                     (
                         str(train["train_id"]),
+                        train.get("train_name"),
                         train["section"],
                         train["arrival"],
                         train["departure"],
+                        "seed",
                     ),
                 )
 

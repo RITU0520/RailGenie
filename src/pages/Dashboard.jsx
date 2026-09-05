@@ -7,12 +7,17 @@ import {
   ShieldCheck,
   BarChart3,
   RefreshCw,
+  Radio,
+  MapPin,
+  Clock3,
 } from "lucide-react";
+import RailwayMap from "./RailwayMap";
 
 const API_URL = "http://127.0.0.1:8000";
 
 function Dashboard() {
   const [trains, setTrains] = useState([]);
+  const [liveTrains, setLiveTrains] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [score, setScore] = useState(null);
@@ -22,7 +27,100 @@ function Dashboard() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [liveLoading, setLiveLoading] = useState(false);
   const [error, setError] = useState("");
+  const [liveError, setLiveError] = useState("");
+
+  // =====================================================
+  // LOAD LIVE TRAIN DATA
+  // =====================================================
+
+  const loadLiveTrains = useCallback(async (loadedTrains) => {
+    if (!loadedTrains || loadedTrains.length === 0) {
+      setLiveTrains([]);
+      return;
+    }
+
+    try {
+      setLiveLoading(true);
+      setLiveError("");
+
+      const results = await Promise.all(
+        loadedTrains.map(async (train) => {
+          try {
+            const response = await fetch(
+              `${API_URL}/api/trains/${encodeURIComponent(
+                train.train_id,
+              )}/live`,
+            );
+
+            if (!response.ok) {
+              return {
+                ...train,
+                live_available: false,
+                data_source: "postgresql",
+              };
+            }
+
+            const data = await response.json();
+
+            if (!data.success || !data.train) {
+              return {
+                ...train,
+                live_available: false,
+                data_source: "postgresql",
+              };
+            }
+
+            return {
+              // PostgreSQL baseline
+              ...train,
+
+              // RailRadar live fields
+              ...data.train,
+
+              // Always preserve PostgreSQL planning fields
+              train_id: train.train_id,
+              section: train.section,
+              arrival: train.arrival,
+              departure: train.departure,
+              priority: train.priority,
+
+              // Live metadata
+              live_available: true,
+              data_source: data.data_source || "postgresql+railradar",
+            };
+          } catch (err) {
+            console.error(
+              `Unable to load live data for train ${train.train_id}:`,
+              err,
+            );
+
+            return {
+              ...train,
+              live_available: false,
+              data_source: "postgresql",
+            };
+          }
+        }),
+      );
+
+      setLiveTrains(results);
+    } catch (err) {
+      console.error(err);
+      setLiveError("Live train data is temporarily unavailable.");
+
+      setLiveTrains(
+        loadedTrains.map((train) => ({
+          ...train,
+          live_available: false,
+          data_source: "postgresql",
+        })),
+      );
+    } finally {
+      setLiveLoading(false);
+    }
+  }, []);
 
   // =====================================================
   // LOAD DASHBOARD DATA FROM POSTGRESQL
@@ -33,86 +131,53 @@ function Dashboard() {
       setLoading(true);
       setError("");
 
-      const [
-        trainsResponse,
-        tasksResponse,
-        scheduleResponse,
-      ] = await Promise.all([
-        fetch(`${API_URL}/api/trains`),
-        fetch(`${API_URL}/api/maintenance-tasks`),
-        fetch(`${API_URL}/api/schedule/latest`),
-      ]);
+      const [trainsResponse, tasksResponse, scheduleResponse] =
+        await Promise.all([
+          fetch(`${API_URL}/api/trains`),
+          fetch(`${API_URL}/api/maintenance-tasks`),
+          fetch(`${API_URL}/api/schedule/latest`),
+        ]);
 
-      if (
-        !trainsResponse.ok ||
-        !tasksResponse.ok ||
-        !scheduleResponse.ok
-      ) {
-        throw new Error(
-          "Unable to load RailGenie dashboard data."
-        );
+      if (!trainsResponse.ok || !tasksResponse.ok || !scheduleResponse.ok) {
+        throw new Error("Unable to load RailGenie dashboard data.");
       }
 
-      const trainsData =
-        await trainsResponse.json();
+      const trainsData = await trainsResponse.json();
+      const tasksData = await tasksResponse.json();
+      const scheduleData = await scheduleResponse.json();
 
-      const tasksData =
-        await tasksResponse.json();
-
-      const scheduleData =
-        await scheduleResponse.json();
-
-      const loadedTrains =
-        trainsData.trains || [];
-
-      const loadedTasks =
-        tasksData.tasks || [];
+      const loadedTrains = trainsData.trains || [];
+      const loadedTasks = tasksData.tasks || [];
 
       setTrains(loadedTrains);
       setTasks(loadedTasks);
-
-      setSchedule(
-        scheduleData.schedule || []
-      );
+      setSchedule(scheduleData.schedule || []);
 
       setScore(
         scheduleData.score !== undefined
           ? {
               score: Number(scheduleData.score),
-              priority_score:
-                scheduleData.priority_score ?? null,
-              train_impact:
-                scheduleData.train_impact ?? 0,
-              safety_score:
-                scheduleData.safety_score ?? null,
+              priority_score: scheduleData.priority_score ?? null,
+              train_impact: scheduleData.train_impact ?? 0,
+              safety_score: scheduleData.safety_score ?? null,
             }
-          : null
+          : null,
       );
 
-      setRunId(
-        scheduleData.run_id ?? null
-      );
+      setRunId(scheduleData.run_id ?? null);
+      setStatus(scheduleData.status ?? null);
+      setCreatedAt(scheduleData.created_at ?? null);
 
-      setStatus(
-        scheduleData.status ?? null
-      );
-
-      setCreatedAt(
-        scheduleData.created_at ?? null
-      );
-
+      // Load live data after PostgreSQL data is available.
+      await loadLiveTrains(loadedTrains);
     } catch (err) {
       console.error(err);
-
-      setError(
-        err.message ||
-          "Unable to load dashboard."
-      );
+      setError(err.message || "Unable to load dashboard.");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [loadLiveTrains]);
 
   // =====================================================
   // INITIAL LOAD
@@ -131,21 +196,33 @@ function Dashboard() {
       loadDashboard();
     };
 
-    window.addEventListener(
-      "focus",
-      handleFocus
-    );
+    window.addEventListener("focus", handleFocus);
 
     return () => {
-      window.removeEventListener(
-        "focus",
-        handleFocus
-      );
+      window.removeEventListener("focus", handleFocus);
     };
   }, [loadDashboard]);
 
   // =====================================================
-  // REFRESH
+  // AUTOMATIC LIVE REFRESH
+  // =====================================================
+
+  useEffect(() => {
+    if (!trains.length) {
+      return undefined;
+    }
+
+    const interval = setInterval(() => {
+      loadLiveTrains(trains);
+    }, 60000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [trains, loadLiveTrains]);
+
+  // =====================================================
+  // MANUAL REFRESH
   // =====================================================
 
   const refreshDashboard = () => {
@@ -154,66 +231,54 @@ function Dashboard() {
   };
 
   // =====================================================
+  // MERGED TRAIN DATA
+  // =====================================================
+
+  const displayTrains = liveTrains.length > 0 ? liveTrains : trains;
+  // =====================================================
   // COUNTS
   // =====================================================
 
-  const criticalTasks =
-    tasks.filter(
-      (task) =>
-        task.priority === "critical"
-    ).length;
+  const criticalTasks = tasks.filter(
+    (task) => task.priority === "critical",
+  ).length;
 
-  const highTasks =
-    tasks.filter(
-      (task) =>
-        task.priority === "high"
-    ).length;
+  const highTasks = tasks.filter((task) => task.priority === "high").length;
 
-  const scheduledIds =
-    new Set(
-      schedule.map(
-        (item) => item.task_id
-      )
-    );
+  const scheduledIds = new Set(schedule.map((item) => item.task_id));
 
-  const scheduledCount =
-    scheduledIds.size;
+  const scheduledCount = scheduledIds.size;
 
-  const pendingCount =
-    Math.max(
-      0,
-      tasks.length -
-        scheduledCount
-    );
+  const pendingCount = Math.max(0, tasks.length - scheduledCount);
 
+  // =====================================================
+  // LIVE COUNTS
+  // =====================================================
+
+  const liveCount = liveTrains.filter((train) => train.live_available).length;
+
+  const delayedCount = liveTrains.filter(
+    (train) => train.live_available && Number(train.delay_minutes) > 0,
+  ).length;
   // =====================================================
   // TOTAL MAINTENANCE TIME
   // =====================================================
 
-  const totalMaintenanceMinutes =
-    schedule.reduce(
-      (total, item) =>
-        total +
-        Number(item.duration || 0),
-      0
-    );
+  const totalMaintenanceMinutes = schedule.reduce(
+    (total, item) => total + Number(item.duration || 0),
+    0,
+  );
 
   // =====================================================
   // PRIORITY HELPERS
   // =====================================================
 
-  const getPriorityClass = (
-    priority
-  ) => {
-    if (
-      priority === "critical"
-    ) {
+  const getPriorityClass = (priority) => {
+    if (priority === "critical") {
       return "critical";
     }
 
-    if (
-      priority === "high"
-    ) {
+    if (priority === "high") {
       return "high";
     }
 
@@ -224,28 +289,53 @@ function Dashboard() {
   // TIME FORMAT
   // =====================================================
 
-  const formatTime = (
-    minutes
-  ) => {
-    if (
-      minutes === undefined ||
-      minutes === null
-    ) {
+  const formatTime = (minutes) => {
+    if (minutes === undefined || minutes === null) {
       return "--:--";
     }
 
-    const hours =
-      Math.floor(
-        minutes / 60
-      );
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
 
-    const mins =
-      minutes % 60;
+    return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+  };
+  const formatDelay = (minutes) => {
+    const value = Number(minutes);
 
-    return (
-      `${String(hours).padStart(2, "0")}:` +
-      `${String(mins).padStart(2, "0")}`
-    );
+    if (!Number.isFinite(value)) {
+      return "—";
+    }
+
+    const rounded = Math.round(value);
+
+    if (rounded === 0) {
+      return "On time";
+    }
+
+    if (rounded > 0) {
+      return `${rounded} min late`;
+    }
+
+    return `${Math.abs(rounded)} min early`;
+  };
+  // =====================================================
+  // LIVE STATUS FORMAT
+  // =====================================================
+
+  const formatLiveStatus = (train) => {
+    if (!train.live_available) {
+      return "DATABASE";
+    }
+
+    if (train.status === "not-started") {
+      return "NOT STARTED";
+    }
+
+    if (train.status) {
+      return String(train.status).replaceAll("-", " ").toUpperCase();
+    }
+
+    return "LIVE";
   };
 
   // =====================================================
@@ -253,11 +343,7 @@ function Dashboard() {
   // =====================================================
 
   if (loading) {
-    return (
-      <div className="card">
-        Loading RailGenie dashboard...
-      </div>
-    );
+    return <div className="card">Loading RailGenie dashboard...</div>;
   }
 
   return (
@@ -266,48 +352,29 @@ function Dashboard() {
       {/* TOPBAR */}
       {/* ================================================= */}
 
-      <header className="topbar">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          marginBottom: "16px",
+        }}
+      >
+        <button
+          type="button"
+          onClick={refreshDashboard}
+          disabled={refreshing}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            cursor: refreshing ? "not-allowed" : "pointer",
+          }}
+        >
+          <RefreshCw size={16} className={refreshing ? "spin" : ""} />
 
-        <div>
-          <p className="eyebrow">
-            RAILWAY INTELLIGENCE
-          </p>
-
-          <h2>
-            Dashboard
-          </h2>
-        </div>
-
-        <div className="topbar-right">
-
-          <button
-            className="outline-button"
-            onClick={
-              refreshDashboard
-            }
-            disabled={refreshing}
-          >
-            <RefreshCw
-              size={14}
-              className={
-                refreshing
-                  ? "spin"
-                  : ""
-              }
-            />
-
-            {refreshing
-              ? "Refreshing..."
-              : "Refresh"}
-          </button>
-
-          <div className="profile">
-            RG
-          </div>
-
-        </div>
-
-      </header>
+          {refreshing ? "Refreshing..." : "Refresh Data"}
+        </button>
+      </div>
 
       {/* ================================================= */}
       {/* ERROR */}
@@ -315,50 +382,101 @@ function Dashboard() {
 
       {error && (
         <div className="analytics-error">
-
-          <AlertTriangle
-            size={18}
-          />
+          <AlertTriangle size={18} />
 
           <div>
+            <strong>Dashboard unavailable</strong>
 
-            <strong>
-              Dashboard unavailable
-            </strong>
-
-            <p>
-              {error}
-            </p>
-
+            <p>{error}</p>
           </div>
-
         </div>
       )}
+
+      {/* ================================================= */}
+      {/* LIVE DATA STATUS */}
+      {/* ================================================= */}
+
+      <div
+        className="card"
+        style={{
+          marginBottom: "20px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "16px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div
+            className="live-railway-data"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+            }}
+          >
+            <Radio size={20} />
+
+            <div>
+              <strong>Live Railway Data</strong>
+
+              <div
+                style={{
+                  marginTop: "4px",
+                  opacity: 0.75,
+                }}
+              >
+                {liveLoading
+                  ? "Updating live train status..."
+                  : liveError
+                    ? liveError
+                    : `${liveCount}/${trains.length} trains connected to RailRadar`}
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            <span className="recommended-badge">
+              {liveLoading ? "UPDATING" : liveCount > 0 ? "LIVE" : "DATABASE"}
+            </span>
+
+            {delayedCount > 0 && (
+              <span className="count-badge">{delayedCount} DELAYED</span>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* ================================================= */}
       {/* STATS */}
       {/* ================================================= */}
 
       <section className="stats-grid">
-
         <StatCard
-          icon={
-            <TrainFront
-              size={21}
-            />
-          }
+          icon={<TrainFront size={21} />}
           type="blue"
           label="Active Trains"
           value={trains.length}
-          description="Loaded from PostgreSQL"
+          description={
+            liveCount > 0
+              ? `${liveCount} live from RailRadar`
+              : "Loaded from PostgreSQL"
+          }
         />
 
         <StatCard
-          icon={
-            <Wrench
-              size={21}
-            />
-          }
+          icon={<Wrench size={21} />}
           type="orange"
           label="Maintenance Tasks"
           value={tasks.length}
@@ -366,11 +484,7 @@ function Dashboard() {
         />
 
         <StatCard
-          icon={
-            <AlertTriangle
-              size={21}
-            />
-          }
+          icon={<AlertTriangle size={21} />}
           type="red"
           label="Critical Tasks"
           value={criticalTasks}
@@ -378,25 +492,12 @@ function Dashboard() {
         />
 
         <StatCard
-          icon={
-            <CheckCircle2
-              size={21}
-            />
-          }
+          icon={<CheckCircle2 size={21} />}
           type="green"
           label="Optimization Score"
-          value={
-            score
-              ? `${score.score}%`
-              : "—"
-          }
-          description={
-            runId
-              ? `Run #${runId}`
-              : "No run available"
-          }
+          value={score ? `${score.score}%` : "—"}
+          description={runId ? `Run #${runId}` : "No run available"}
         />
-
       </section>
 
       {/* ================================================= */}
@@ -404,18 +505,12 @@ function Dashboard() {
       {/* ================================================= */}
 
       <section className="stats-grid">
-
         <StatCard
-          icon={
-            <ShieldCheck
-              size={21}
-            />
-          }
+          icon={<ShieldCheck size={21} />}
           type="green"
           label="Safety Score"
           value={
-            score?.safety_score !== null &&
-            score?.safety_score !== undefined
+            score?.safety_score !== null && score?.safety_score !== undefined
               ? `${score.safety_score}%`
               : "—"
           }
@@ -423,11 +518,7 @@ function Dashboard() {
         />
 
         <StatCard
-          icon={
-            <BarChart3
-              size={21}
-            />
-          }
+          icon={<BarChart3 size={21} />}
           type="blue"
           label="Priority Score"
           value={
@@ -440,33 +531,95 @@ function Dashboard() {
         />
 
         <StatCard
-          icon={
-            <TrainFront
-              size={21}
-            />
-          }
+          icon={<TrainFront size={21} />}
           type="orange"
           label="Train Impact"
-          value={
-            score
-              ? `${score.train_impact} min`
-              : "—"
-          }
+          value={score ? `${score.train_impact} min` : "—"}
           description="Operational disruption"
         />
 
         <StatCard
-          icon={
-            <Wrench
-              size={21}
-            />
-          }
+          icon={<Wrench size={21} />}
           type="blue"
           label="Maintenance Time"
           value={`${totalMaintenanceMinutes} min`}
           description="Total optimized work"
         />
+      </section>
 
+      {/* ================================================= */}
+      {/* RAILWAY MAP */}
+      {/* ================================================= */}
+
+      <RailwayMap trains={displayTrains} schedule={schedule} />
+
+      {/* ================================================= */}
+      {/* LIVE TRAIN STATUS */}
+      {/* ================================================= */}
+
+      <section
+        className="card"
+        style={{
+          marginTop: "20px",
+          marginBottom: "20px",
+        }}
+      >
+        <div className="card-header">
+          <div>
+            <h3>Live Train Status</h3>
+
+            <p>Real-time railway movement data</p>
+          </div>
+
+          <span className="recommended-badge">{liveCount} LIVE</span>
+        </div>
+
+        <div className="analytics-table">
+          <div className="analytics-table-header">
+            <span>Train</span>
+            <span>Status</span>
+            <span>Current</span>
+            <span>Next</span>
+            <span>Delay</span>
+            <span>Source</span>
+          </div>
+
+          {displayTrains.map((train) => (
+            <div className="analytics-table-row" key={train.train_id}>
+              <strong>{train.train_id}</strong>
+
+              <span>{formatLiveStatus(train)}</span>
+
+              <span>
+                <MapPin
+                  size={14}
+                  style={{
+                    verticalAlign: "middle",
+                    marginRight: "4px",
+                  }}
+                />
+
+                {train.current_station || "—"}
+              </span>
+
+              <span>{train.next_station || "—"}</span>
+
+              <span>{train.live_available ? formatDelay(train) : "—"}</span>
+
+              <span>{train.live_available ? "RAILRADAR" : "POSTGRESQL"}</span>
+            </div>
+          ))}
+        </div>
+
+        {displayTrains.length === 0 && (
+          <div className="analysis-empty">
+            <TrainFront size={30} />
+
+            <strong>No trains available</strong>
+
+            <span>Railway movement data is currently unavailable.</span>
+          </div>
+        )}
       </section>
 
       {/* ================================================= */}
@@ -474,50 +627,30 @@ function Dashboard() {
       {/* ================================================= */}
 
       <section className="dashboard-grid">
-
         {/* SYSTEM OVERVIEW */}
 
         <div className="card">
-
           <div className="card-header">
-
             <div>
+              <h3>Optimization Overview</h3>
 
-              <h3>
-                Optimization Overview
-              </h3>
-
-              <p>
-                Current applied railway
-                maintenance plan
-              </p>
-
+              <p>Current applied railway maintenance plan</p>
             </div>
 
             <span className="recommended-badge">
-              {status
-                ? status.toUpperCase()
-                : "AI OPTIMIZED"}
+              {status ? status.toUpperCase() : "AI OPTIMIZED"}
             </span>
-
           </div>
 
           <div className="dashboard-overview">
-
             <OverviewMetric
               label="Scheduled Tasks"
               value={`${scheduledCount}/${tasks.length}`}
             />
 
-            <OverviewMetric
-              label="Pending Tasks"
-              value={pendingCount}
-            />
+            <OverviewMetric label="Pending Tasks" value={pendingCount} />
 
-            <OverviewMetric
-              label="Train Movements"
-              value={trains.length}
-            />
+            <OverviewMetric label="Train Movements" value={trains.length} />
 
             <OverviewMetric
               label="Safety"
@@ -528,17 +661,12 @@ function Dashboard() {
                   : "—"
               }
             />
-
           </div>
 
           <div className="dashboard-status">
-
-            <CheckCircle2
-              size={20}
-            />
+            <CheckCircle2 size={20} />
 
             <div>
-
               <strong>
                 {runId
                   ? `Optimization Run #${runId} active`
@@ -548,108 +676,61 @@ function Dashboard() {
               <span>
                 {createdAt
                   ? `Latest schedule generated ${new Date(
-                      createdAt
+                      createdAt,
                     ).toLocaleString()}.`
                   : "Maintenance scheduling uses train conflicts, safety buffers and task priority."}
               </span>
-
             </div>
-
           </div>
-
         </div>
 
         {/* PRIORITY TASKS */}
 
         <div className="card">
-
           <div className="card-header">
-
             <div>
+              <h3>Priority Tasks</h3>
 
-              <h3>
-                Priority Tasks
-              </h3>
-
-              <p>
-                Highest-priority maintenance work
-              </p>
-
+              <p>Highest-priority maintenance work</p>
             </div>
 
-            <span className="count-badge">
-              {criticalTasks +
-                highTasks}
-            </span>
-
+            <span className="count-badge">{criticalTasks + highTasks}</span>
           </div>
 
           {tasks
             .filter(
               (task) =>
-                task.priority ===
-                  "critical" ||
-                task.priority ===
-                  "high"
+                task.priority === "critical" || task.priority === "high",
             )
-            .sort(
-              (a, b) => {
-                const rank = {
-                  critical: 1,
-                  high: 2,
-                };
+            .sort((a, b) => {
+              const rank = {
+                critical: 1,
+                high: 2,
+              };
 
-                return (
-                  rank[a.priority] -
-                  rank[b.priority]
-                );
-              }
-            )
+              return rank[a.priority] - rank[b.priority];
+            })
             .slice(0, 5)
-            .map(
-              (task) => (
+            .map((task) => (
+              <div className="task" key={task.task_id}>
+                <div className="task-id">{task.task_id}</div>
 
-                <div
-                  className="task"
-                  key={
-                    task.task_id
-                  }
-                >
+                <div className="task-info">
+                  <strong>{task.asset_id}</strong>
 
-                  <div className="task-id">
-                    {task.task_id}
-                  </div>
-
-                  <div className="task-info">
-
-                    <strong>
-                      {task.asset_id}
-                    </strong>
-
-                    <span>
-                      Section{" "}
-                      {task.section}
-                      {" · "}
-                      {task.duration} min
-                    </span>
-
-                  </div>
-
-                  <span
-                    className={`priority ${getPriorityClass(
-                      task.priority
-                    )}`}
-                  >
-                    {task.priority}
+                  <span>
+                    Section {task.section}
+                    {" · "}
+                    {task.duration} min
                   </span>
-
                 </div>
 
-              )
-            )}
-
+                <span className={`priority ${getPriorityClass(task.priority)}`}>
+                  {task.priority}
+                </span>
+              </div>
+            ))}
         </div>
-
       </section>
 
       {/* ================================================= */}
@@ -657,129 +738,58 @@ function Dashboard() {
       {/* ================================================= */}
 
       <section className="card schedule-card">
-
         <div className="card-header">
-
           <div>
+            <h3>Latest Applied Schedule</h3>
 
-            <h3>
-              Latest Applied Schedule
-            </h3>
-
-            <p>
-              {runId
-                ? `PostgreSQL Run #${runId}`
-                : "No applied schedule"}
-            </p>
-
+            <p>{runId ? `PostgreSQL Run #${runId}` : "No applied schedule"}</p>
           </div>
 
-          <span className="recommended-badge">
-            {schedule.length} BLOCKS
-          </span>
-
+          <span className="recommended-badge">{schedule.length} BLOCKS</span>
         </div>
 
         <div className="analytics-table">
-
           <div className="analytics-table-header">
-
-            <span>
-              Task
-            </span>
-
-            <span>
-              Asset
-            </span>
-
-            <span>
-              Section
-            </span>
-
-            <span>
-              Time
-            </span>
-
-            <span>
-              Duration
-            </span>
-
-            <span>
-              Priority
-            </span>
-
+            <span>Task</span>
+            <span>Asset</span>
+            <span>Section</span>
+            <span>Time</span>
+            <span>Duration</span>
+            <span>Priority</span>
           </div>
 
-          {schedule.map(
-            (item) => (
+          {schedule.map((item) => (
+            <div className="analytics-table-row" key={item.task_id}>
+              <strong>{item.task_id}</strong>
 
-              <div
-                className="analytics-table-row"
-                key={
-                  item.task_id
-                }
-              >
+              <span>{item.asset_id}</span>
 
-                <strong>
-                  {item.task_id}
-                </strong>
+              <span>{item.section}</span>
 
-                <span>
-                  {item.asset_id}
-                </span>
+              <span>
+                {formatTime(item.start)}
+                {" – "}
+                {formatTime(item.end)}
+              </span>
 
-                <span>
-                  {item.section}
-                </span>
+              <span>{item.duration} min</span>
 
-                <span>
-                  {formatTime(
-                    item.start
-                  )}
-                  {" – "}
-                  {formatTime(
-                    item.end
-                  )}
-                </span>
-
-                <span>
-                  {item.duration} min
-                </span>
-
-                <span
-                  className={`priority ${getPriorityClass(
-                    item.priority
-                  )}`}
-                >
-                  {item.priority}
-                </span>
-
-              </div>
-
-            )
-          )}
-
+              <span className={`priority ${getPriorityClass(item.priority)}`}>
+                {item.priority}
+              </span>
+            </div>
+          ))}
         </div>
 
         {schedule.length === 0 && (
           <div className="analysis-empty">
+            <AlertTriangle size={30} />
 
-            <AlertTriangle
-              size={30}
-            />
+            <strong>No maintenance blocks generated</strong>
 
-            <strong>
-              No maintenance blocks generated
-            </strong>
-
-            <span>
-              Apply an optimized schedule
-              from the Assistant.
-            </span>
-
+            <span>Apply an optimized schedule from the Assistant.</span>
           </div>
         )}
-
       </section>
 
       {/* ================================================= */}
@@ -787,70 +797,54 @@ function Dashboard() {
       {/* ================================================= */}
 
       <section className="analytics-summary">
-
         <div className="analytics-summary-item">
-
-          <ShieldCheck
-            size={20}
-          />
+          <ShieldCheck size={20} />
 
           <div>
+            <strong>Safety buffers active</strong>
 
-            <strong>
-              Safety buffers active
-            </strong>
-
-            <span>
-              10-minute protection before
-              and after train movements.
-            </span>
-
+            <span>10-minute protection before and after train movements.</span>
           </div>
-
         </div>
 
         <div className="analytics-summary-item">
-
-          <TrainFront
-            size={20}
-          />
+          <TrainFront size={20} />
 
           <div>
-
-            <strong>
-              {trains.length} train movements
-            </strong>
+            <strong>{trains.length} train movements</strong>
 
             <span>
-              Loaded from PostgreSQL
-              railway movement data.
+              {liveCount > 0
+                ? `${liveCount} movements currently enriched with RailRadar live data.`
+                : "Loaded from PostgreSQL railway movement data."}
             </span>
-
           </div>
-
         </div>
 
         <div className="analytics-summary-item">
-
-          <Wrench
-            size={20}
-          />
+          <Wrench size={20} />
 
           <div>
-
-            <strong>
-              {scheduledCount} tasks scheduled
-            </strong>
+            <strong>{scheduledCount} tasks scheduled</strong>
 
             <span>
-              {totalMaintenanceMinutes} minutes
-              of maintenance work planned.
+              {totalMaintenanceMinutes} minutes of maintenance work planned.
             </span>
-
           </div>
-
         </div>
 
+        <div className="analytics-summary-item">
+          <Clock3 size={20} />
+
+          <div>
+            <strong>Live refresh: 60 seconds</strong>
+
+            <span>
+              Train status is automatically refreshed while the dashboard is
+              open.
+            </span>
+          </div>
+        </div>
       </section>
     </>
   );
@@ -860,38 +854,18 @@ function Dashboard() {
 // STAT CARD
 // =========================================================
 
-function StatCard({
-  icon,
-  type,
-  label,
-  value,
-  description,
-}) {
+function StatCard({ icon, type, label, value, description }) {
   return (
     <div className="stat-card">
-
-      <div
-        className={`stat-icon ${type}`}
-      >
-        {icon}
-      </div>
+      <div className={`stat-icon ${type}`}>{icon}</div>
 
       <div className="stat-content">
+        <span>{label}</span>
 
-        <span>
-          {label}
-        </span>
+        <strong>{value}</strong>
 
-        <strong>
-          {value}
-        </strong>
-
-        <small>
-          {description}
-        </small>
-
+        <small>{description}</small>
       </div>
-
     </div>
   );
 }
@@ -900,21 +874,12 @@ function StatCard({
 // OVERVIEW METRIC
 // =========================================================
 
-function OverviewMetric({
-  label,
-  value,
-}) {
+function OverviewMetric({ label, value }) {
   return (
     <div className="dashboard-overview-item">
+      <span>{label}</span>
 
-      <span>
-        {label}
-      </span>
-
-      <strong>
-        {value}
-      </strong>
-
+      <strong>{value}</strong>
     </div>
   );
 }

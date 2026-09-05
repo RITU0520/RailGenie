@@ -4,9 +4,7 @@ function formatTime(minutes) {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
 
-  return `${String(hours).padStart(2, "0")}:${String(
-    mins
-  ).padStart(2, "0")}`;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 }
 
 function Assistant() {
@@ -33,29 +31,24 @@ function Assistant() {
       setResult(null);
       setApplied(null);
 
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/assistant",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message: message.trim(),
-          }),
-        }
-      );
+      const response = await fetch("http://127.0.0.1:8000/api/assistant", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: message.trim(),
+        }),
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.detail?.message ||
-            data.detail ||
-            "Unable to process request."
+          data.detail?.message || data.detail || "Unable to process request.",
         );
       }
-       
+
       console.log("RailGenie response:", data);
       setResult(data);
     } catch (err) {
@@ -86,34 +79,26 @@ function Assistant() {
           ? simulation.score.score
           : simulation.score;
 
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/schedule/apply",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-              status: simulation.status,
-              score: score,
-              priority_score:
-                simulation.score?.priority_score ?? null,
-              train_impact:
-                simulation.score?.train_impact ?? null,
-              safety_score:
-                simulation.score?.safety_score ?? null,
-              schedule: simulation.schedule,
-            }),
-        }
-      );
+      const response = await fetch("http://127.0.0.1:8000/api/schedule/apply", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: simulation.status,
+          score: score,
+          priority_score: simulation.score?.priority_score ?? null,
+          train_impact: simulation.score?.train_impact ?? null,
+          safety_score: simulation.score?.safety_score ?? null,
+          schedule: simulation.schedule,
+        }),
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.detail?.message ||
-            data.detail ||
-            "Unable to apply schedule."
+          data.detail?.message || data.detail || "Unable to apply schedule.",
         );
       }
 
@@ -141,55 +126,32 @@ function Assistant() {
 
   return (
     <div className="page">
-
       {/* =================================================
           HEADER
       ================================================= */}
-
-      <div className="page-header">
-
-        <div>
-          <h2>RailGenie Assistant</h2>
-
-          <p>
-            Describe a railway disruption or maintenance
-            change in natural language.
-          </p>
-        </div>
-
-      </div>
 
       {/* =================================================
           INPUT
       ================================================= */}
 
       <section className="assistant-panel">
-
         <div className="assistant-input-area">
-
-          <label>
-            Planning Request
-          </label>
+          <label>Planning Request</label>
 
           <textarea
             value={message}
-            onChange={(e) =>
-              setMessage(e.target.value)
-            }
+            onChange={(e) => setMessage(e.target.value)}
             placeholder="Example: Delay train 12001 by 30 minutes and extend M002 to 90 minutes"
             rows={5}
           />
 
           <div className="assistant-actions">
-
             <button
               onClick={askRailGenie}
               disabled={loading || applying}
               className="assistant-button"
             >
-              {loading
-                ? "Optimizing..."
-                : "Ask RailGenie"}
+              {loading ? "Optimizing..." : "Ask RailGenie"}
             </button>
 
             <button
@@ -199,17 +161,10 @@ function Assistant() {
             >
               Clear
             </button>
-
           </div>
 
-          {error && (
-            <div className="assistant-error">
-              {error}
-            </div>
-          )}
-
+          {error && <div className="assistant-error">{error}</div>}
         </div>
-
       </section>
 
       {/* =================================================
@@ -218,53 +173,36 @@ function Assistant() {
 
       {result && (
         <>
-
           {/* =============================================
               REQUEST UNDERSTOOD
           ============================================= */}
 
           <section className="assistant-panel">
-
             <div className="assistant-section-header">
+              <h3>Request Understood</h3>
 
-              <h3>
-                Request Understood
-              </h3>
-
-              <span className="assistant-success">
-                ✓ Success
-              </span>
-
+              <span className="assistant-success">✓ Success</span>
             </div>
 
-            <p className="assistant-message">
-              {result.message}
-            </p>
+            <p className="assistant-message">{result.message}</p>
 
             <div className="assistant-parsed">
-
               <div>
                 <span>Train</span>
 
-                <strong>
-                  {result.parsed.train_id || "—"}
-                </strong>
+                <strong>{result.parsed.train_id || "—"}</strong>
               </div>
 
               <div>
                 <span>Delay</span>
 
-                <strong>
-                  {result.parsed.train_delay || 0} min
-                </strong>
+                <strong>{result.parsed.train_delay || 0} min</strong>
               </div>
 
               <div>
                 <span>Task</span>
 
-                <strong>
-                  {result.parsed.task_id || "—"}
-                </strong>
+                <strong>{result.parsed.task_id || "—"}</strong>
               </div>
 
               <div>
@@ -280,13 +218,9 @@ function Assistant() {
               <div>
                 <span>Priority</span>
 
-                <strong>
-                  {result.parsed.new_priority || "—"}
-                </strong>
+                <strong>{result.parsed.new_priority || "—"}</strong>
               </div>
-
             </div>
-
           </section>
 
           {/* =============================================
@@ -295,26 +229,16 @@ function Assistant() {
 
           {simulation && (
             <section className="assistant-panel">
-
               <div className="assistant-section-header">
-
                 <div>
-
-                  <h3>
-                    Optimization Result
-                  </h3>
+                  <h3>Optimization Result</h3>
 
                   <p>
-                    RailGenie generated a new
-                    safety-aware maintenance schedule.
+                    RailGenie generated a new safety-aware maintenance schedule.
                   </p>
-
                 </div>
 
-                <span className="assistant-optimal">
-                  {simulation.status}
-                </span>
-
+                <span className="assistant-optimal">{simulation.status}</span>
               </div>
 
               {/* =======================================
@@ -323,112 +247,153 @@ function Assistant() {
 
               {score && (
                 <div className="assistant-metrics">
-
                   <div className="assistant-metric">
-                    <span>
-                      Overall Score
-                    </span>
+                    <span>Overall Score</span>
 
-                    <strong>
-                      {score.score}
-                    </strong>
+                    <strong>{score.score}</strong>
                   </div>
 
                   <div className="assistant-metric">
-                    <span>
-                      Priority Score
-                    </span>
+                    <span>Priority Score</span>
 
-                    <strong>
-                      {score.priority_score}
-                    </strong>
+                    <strong>{score.priority_score}</strong>
                   </div>
 
                   <div className="assistant-metric">
-                    <span>
-                      Train Impact
-                    </span>
+                    <span>Train Impact</span>
 
-                    <strong>
-                      {score.train_impact}
-                    </strong>
+                    <strong>{score.train_impact}</strong>
                   </div>
 
                   <div className="assistant-metric">
-                    <span>
-                      Safety Score
-                    </span>
+                    <span>Safety Score</span>
 
-                    <strong>
-                      {score.safety_score}
-                    </strong>
+                    <strong>{score.safety_score}</strong>
                   </div>
-
                 </div>
               )}
 
+              {/* =======================================
+    WHY THIS PLAN
+======================================= */}
+
+              {score && simulation.status === "optimal" && (
+                <div className="assistant-reasoning">
+                  <div className="assistant-reasoning-header">
+                    <div>
+                      <h4>Why this plan?</h4>
+                      <p>
+                        RailGenie interpreted your request and re-optimized the
+                        maintenance schedule while preserving railway safety
+                        constraints.
+                      </p>
+                    </div>
+
+                    <span className="assistant-ai-badge">AI + OPTIMIZER</span>
+                  </div>
+
+                  <div className="assistant-reasoning-grid">
+                    <div className="assistant-reasoning-item">
+                      <span className="reasoning-check">✓</span>
+                      <div>
+                        <strong>Natural language understood</strong>
+                        <span>
+                          Your planning request was converted into structured
+                          train and maintenance constraints.
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="assistant-reasoning-item">
+                      <span className="reasoning-check">✓</span>
+                      <div>
+                        <strong>Schedule re-optimized</strong>
+                        <span>
+                          RailGenie rebuilt the maintenance plan using the
+                          changed operating conditions.
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="assistant-reasoning-item">
+                      <span className="reasoning-check">✓</span>
+                      <div>
+                        <strong>Safety score: {score.safety_score}%</strong>
+                        <span>
+                          Protected train movement intervals remain satisfied.
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="assistant-reasoning-item">
+                      <span className="reasoning-check">✓</span>
+                      <div>
+                        <strong>Train impact: {score.train_impact} min</strong>
+                        <span>
+                          Direct maintenance overlap with train movements is
+                          minimized.
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="assistant-reasoning-item">
+                      <span className="reasoning-check">✓</span>
+                      <div>
+                        <strong>Priority score: {score.priority_score}%</strong>
+                        <span>
+                          Maintenance priority is included in the schedule
+                          evaluation.
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="assistant-reasoning-item">
+                      <span className="reasoning-check">✓</span>
+                      <div>
+                        <strong>Overall plan score: {score.score}%</strong>
+                        <span>
+                          Combined evaluation of priority, safety and
+                          operational impact.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               {/* =======================================
                   CHANGES
               ======================================= */}
 
               {simulation.changes?.length > 0 && (
                 <div className="assistant-result-section">
-
-                  <h4>
-                    Scenario Changes
-                  </h4>
+                  <h4>Scenario Changes</h4>
 
                   <div className="assistant-changes">
+                    {simulation.changes.map((change, index) => (
+                      <div className="assistant-change" key={index}>
+                        {change.type === "train_delay" && (
+                          <>
+                            <strong>Train {change.train_id}</strong>
 
-                    {simulation.changes.map(
-                      (change, index) => (
+                            <span>
+                              Delayed by {change.arrival_change} minutes
+                            </span>
+                          </>
+                        )}
 
-                        <div
-                          className="assistant-change"
-                          key={index}
-                        >
+                        {change.type === "duration_change" && (
+                          <>
+                            <strong>Task {change.task_id}</strong>
 
-                          {change.type ===
-                            "train_delay" && (
-                            <>
-                              <strong>
-                                Train{" "}
-                                {change.train_id}
-                              </strong>
-
-                              <span>
-                                Delayed by{" "}
-                                {change.arrival_change}{" "}
-                                minutes
-                              </span>
-                            </>
-                          )}
-
-                          {change.type ===
-                            "duration_change" && (
-                            <>
-                              <strong>
-                                Task{" "}
-                                {change.task_id}
-                              </strong>
-
-                              <span>
-                                Duration changed from{" "}
-                                {change.old_duration}{" "}
-                                to{" "}
-                                {change.new_duration}{" "}
-                                minutes
-                              </span>
-                            </>
-                          )}
-
-                        </div>
-
-                      )
-                    )}
-
+                            <span>
+                              Duration changed from {change.old_duration} to{" "}
+                              {change.new_duration} minutes
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    ))}
                   </div>
-
                 </div>
               )}
 
@@ -438,17 +403,11 @@ function Assistant() {
 
               {simulation.schedule?.length > 0 && (
                 <div className="assistant-result-section">
-
-                  <h4>
-                    Re-planned Schedule
-                  </h4>
+                  <h4>Re-planned Schedule</h4>
 
                   <div className="schedule-table-wrapper">
-
                     <table className="schedule-table">
-
                       <thead>
-
                         <tr>
                           <th>Task</th>
                           <th>Asset</th>
@@ -458,69 +417,37 @@ function Assistant() {
                           <th>Duration</th>
                           <th>Priority</th>
                         </tr>
-
                       </thead>
 
                       <tbody>
+                        {simulation.schedule.map((item) => (
+                          <tr key={item.task_id}>
+                            <td>
+                              <strong>{item.task_id}</strong>
+                            </td>
 
-                        {simulation.schedule.map(
-                          (item) => (
+                            <td>{item.asset_id}</td>
 
-                            <tr
-                              key={item.task_id}
-                            >
+                            <td>{item.section}</td>
 
-                              <td>
-                                <strong>
-                                  {item.task_id}
-                                </strong>
-                              </td>
+                            <td>{formatTime(item.start)}</td>
 
-                              <td>
-                                {item.asset_id}
-                              </td>
+                            <td>{formatTime(item.end)}</td>
 
-                              <td>
-                                {item.section}
-                              </td>
+                            <td>{item.duration} min</td>
 
-                              <td>
-                                {formatTime(
-                                  item.start
-                                )}
-                              </td>
-
-                              <td>
-                                {formatTime(
-                                  item.end
-                                )}
-                              </td>
-
-                              <td>
-                                {item.duration} min
-                              </td>
-
-                              <td>
-
-                                <span
-                                  className={`priority-badge priority-${item.priority}`}
-                                >
-                                  {item.priority}
-                                </span>
-
-                              </td>
-
-                            </tr>
-
-                          )
-                        )}
-
+                            <td>
+                              <span
+                                className={`priority-badge priority-${item.priority}`}
+                              >
+                                {item.priority}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
-
                     </table>
-
                   </div>
-
                 </div>
               )}
 
@@ -531,20 +458,14 @@ function Assistant() {
               {simulation.status === "optimal" &&
                 simulation.schedule?.length > 0 && (
                   <div className="assistant-apply-section">
-
                     {!applied ? (
                       <>
-
                         <div>
-                          <h4>
-                            Apply This Schedule
-                          </h4>
+                          <h4>Apply This Schedule</h4>
 
                           <p>
-                            Save this optimized schedule
-                            to PostgreSQL and make it
-                            available as the latest
-                            schedule.
+                            Save this optimized schedule to PostgreSQL and make
+                            it available as the latest schedule.
                           </p>
                         </div>
 
@@ -553,42 +474,28 @@ function Assistant() {
                           disabled={applying}
                           className="assistant-apply-button"
                         >
-                          {applying
-                            ? "Applying..."
-                            : "✓ Apply Schedule"}
+                          {applying ? "Applying..." : "✓ Apply Schedule"}
                         </button>
-
                       </>
                     ) : (
                       <div className="assistant-applied">
-
                         <div>
-                          <strong>
-                            ✓ Schedule Applied
-                          </strong>
+                          <strong>✓ Schedule Applied</strong>
 
-                          <span>
-                            Saved successfully to
-                            PostgreSQL.
-                          </span>
+                          <span>Saved successfully to PostgreSQL.</span>
                         </div>
 
                         <div className="assistant-run-id">
                           Run #{applied.run_id}
                         </div>
-
                       </div>
                     )}
-
                   </div>
                 )}
-
             </section>
           )}
-
         </>
       )}
-
     </div>
   );
 }

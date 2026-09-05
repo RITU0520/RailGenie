@@ -101,7 +101,7 @@ function BlockPlanning() {
           },
 
           body: JSON.stringify({
-            planning_date: "2026-08-27",
+            planning_date: new Date().toISOString().slice(0, 10),
 
             planning_start:
               Number(planningStart),
@@ -200,61 +200,7 @@ function BlockPlanning() {
   // REFRESH
   // =====================================================
 
-  const handleRefresh = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const tasksResponse = await fetch(
-        API_URL + "/api/maintenance-tasks"
-      );
-
-      const trainsResponse = await fetch(
-        API_URL + "/api/trains"
-      );
-
-      if (
-        !tasksResponse.ok ||
-        !trainsResponse.ok
-      ) {
-        throw new Error(
-          "Unable to refresh planning data."
-        );
-      }
-
-      const tasksData =
-        await tasksResponse.json();
-
-      const trainsData =
-        await trainsResponse.json();
-
-      const loadedTasks =
-        tasksData.tasks || [];
-
-      const loadedTrains =
-        trainsData.trains || [];
-
-      setTasks(loadedTasks);
-      setTrains(loadedTrains);
-
-      await runOptimization(
-        loadedTasks,
-        loadedTrains,
-        safetyBefore,
-        safetyAfter
-      );
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        err.message ||
-          "Unable to refresh planning data."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  
   // =====================================================
   // FORMAT TIME
   // =====================================================
@@ -318,34 +264,7 @@ function BlockPlanning() {
 
   return (
     <>
-      {/* HEADER */}
-
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">
-            MAINTENANCE OPTIMIZATION
-          </p>
-
-          <h2>
-            Block Planning
-          </h2>
-        </div>
-
-        <div className="topbar-right">
-          <button
-            className="outline-button"
-            onClick={handleRefresh}
-            disabled={optimizing}
-          >
-            <RefreshCw size={14} />
-            Refresh
-          </button>
-
-          <div className="profile">
-            RG
-          </div>
-        </div>
-      </header>
+      
 
       {/* ERROR */}
 
@@ -672,6 +591,109 @@ function BlockPlanning() {
       </section>
 
       {/* SAFETY INFORMATION */}
+      {/* WHY THIS SCHEDULE */}
+
+{score && schedule.length > 0 && (
+  <section className="card planning-explain-card">
+    <div className="card-header">
+      <div>
+        <h3>Why this schedule?</h3>
+        <p>
+          RailGenie generated this plan using maintenance
+          priority, train movements and safety constraints.
+        </p>
+      </div>
+
+      <span className="recommended-badge">
+        AI DECISION
+      </span>
+    </div>
+
+    <div className="planning-explain-grid">
+
+      <div className="planning-explain-item">
+        <CheckCircle2 size={19} />
+        <div>
+          <strong>
+            Critical maintenance prioritized
+          </strong>
+          <span>
+            High-risk and critical maintenance work is
+            considered first by the planning engine.
+          </span>
+        </div>
+      </div>
+
+      <div className="planning-explain-item">
+        <ShieldCheck size={19} />
+        <div>
+          <strong>
+            Train safety protected
+          </strong>
+          <span>
+            {score.safety_score}% safety score with{" "}
+            {safetyBefore}-minute protection before and{" "}
+            {safetyAfter}-minute protection after train movements.
+          </span>
+        </div>
+      </div>
+
+      <div className="planning-explain-item">
+        <CheckCircle2 size={19} />
+        <div>
+          <strong>
+            Zero direct train impact
+          </strong>
+          <span>
+            The generated schedule produces{" "}
+            {score.train_impact} minutes of direct train
+            movement overlap.
+          </span>
+        </div>
+      </div>
+
+      <div className="planning-explain-item">
+        <CheckCircle2 size={19} />
+        <div>
+          <strong>
+            Priority-aware scheduling
+          </strong>
+          <span>
+            The resulting maintenance priority score is{" "}
+            {score.priority_score}%.
+          </span>
+        </div>
+      </div>
+
+      <div className="planning-explain-item">
+        <CheckCircle2 size={19} />
+        <div>
+          <strong>
+            {schedule.length} maintenance blocks generated
+          </strong>
+          <span>
+            The optimizer placed feasible maintenance work
+            within the configured planning horizon.
+          </span>
+        </div>
+      </div>
+
+      <div className="planning-explain-item">
+        <CheckCircle2 size={19} />
+        <div>
+          <strong>
+            Overall plan quality: {score.score}%
+          </strong>
+          <span>
+            Combined evaluation of maintenance priority,
+            safety compliance and operational impact.
+          </span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+)}
 
       <section className="card planning-safety-card">
         <div className="planning-safety-icon">

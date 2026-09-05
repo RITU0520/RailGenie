@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 
 import Layout from "./components/Layout";
+import SplashScreen from "./components/SplashScreen";
 
 import Dashboard from "./pages/Dashboard";
 import MaintenanceTasks from "./pages/MaintenanceTasks";
@@ -20,18 +21,11 @@ import "./App.css";
 function App() {
   return (
     <BrowserRouter>
+      <SplashScreen />
+
       <Routes>
-
-        {/* =========================================
-            ALL APPLICATION PAGES USE THE LAYOUT
-        ========================================== */}
-
         <Route element={<Layout />}>
-
-          <Route
-            path="/"
-            element={<Dashboard />}
-          />
+          <Route path="/" element={<Dashboard />} />
 
           <Route
             path="/tasks"
@@ -62,9 +56,7 @@ function App() {
             path="/assistant"
             element={<Assistant />}
           />
-
         </Route>
-
       </Routes>
     </BrowserRouter>
   );

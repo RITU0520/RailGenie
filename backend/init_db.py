@@ -9,9 +9,19 @@ def create_tables():
                 CREATE TABLE IF NOT EXISTS trains (
                     id SERIAL PRIMARY KEY,
                     train_id VARCHAR(50) UNIQUE NOT NULL,
+                    train_name VARCHAR(200),
                     section VARCHAR(50) NOT NULL,
                     arrival INTEGER NOT NULL,
-                    departure INTEGER NOT NULL
+                    departure INTEGER NOT NULL,
+                    status VARCHAR(50),
+                    delay_minutes INTEGER DEFAULT 0,
+                    current_station VARCHAR(100),
+                    next_station VARCHAR(100),
+                    latitude DOUBLE PRECISION,
+                    longitude DOUBLE PRECISION,
+                    speed_kmh DOUBLE PRECISION,
+                    last_updated TIMESTAMPTZ,
+                    data_source VARCHAR(50) DEFAULT 'postgresql'
                 );
             """)
 
@@ -69,6 +79,22 @@ def create_tables():
                     priority VARCHAR(20) NOT NULL
                 );
             """)
+
+
+            # Upgrade existing databases without deleting data.
+            for statement in [
+                "ALTER TABLE trains ADD COLUMN IF NOT EXISTS train_name VARCHAR(200)",
+                "ALTER TABLE trains ADD COLUMN IF NOT EXISTS status VARCHAR(50)",
+                "ALTER TABLE trains ADD COLUMN IF NOT EXISTS delay_minutes INTEGER DEFAULT 0",
+                "ALTER TABLE trains ADD COLUMN IF NOT EXISTS current_station VARCHAR(100)",
+                "ALTER TABLE trains ADD COLUMN IF NOT EXISTS next_station VARCHAR(100)",
+                "ALTER TABLE trains ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION",
+                "ALTER TABLE trains ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION",
+                "ALTER TABLE trains ADD COLUMN IF NOT EXISTS speed_kmh DOUBLE PRECISION",
+                "ALTER TABLE trains ADD COLUMN IF NOT EXISTS last_updated TIMESTAMPTZ",
+                "ALTER TABLE trains ADD COLUMN IF NOT EXISTS data_source VARCHAR(50) DEFAULT 'postgresql'",
+            ]:
+                cur.execute(statement)
 
         conn.commit()
 

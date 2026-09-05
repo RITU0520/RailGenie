@@ -69,6 +69,7 @@ def save_schedule(
         conn.commit()
 
     return run_id
+
 def get_latest_schedule():
     with get_connection() as conn:
         with conn.cursor() as cur:

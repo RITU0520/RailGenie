@@ -13,6 +13,7 @@ from assistant import parse_planning_request
 
 from scenario import build_scenario, scenario_summary
 from diagnostics import diagnose_schedule
+from railway_data_service import get_live_train, normalize_live_train, RailwayDataError
 
 
 # =========================================================
@@ -91,8 +92,10 @@ class SimulationRequest(BaseModel):
 class ApplyScheduleRequest(BaseModel):
     status: str
     score: float
+    priority_score: Optional[float] = None
+    train_impact: Optional[float] = None
+    safety_score: Optional[float] = None
     schedule: list[dict]
-
 # =========================================================
 # ROOT
 # =========================================================
@@ -124,7 +127,6 @@ def health():
 
 @app.get("/api/database/health")
 def database_health():
-
     try:
         data = load_all_from_db()
 
@@ -132,19 +134,14 @@ def database_health():
             "status": "connected",
             "database": "railgenie",
             "trains": len(data["trains"]),
-            "assets": len(data["assets"]),
-            "maintenance_tasks": len(
-                data["maintenance_tasks"]
-            ),
+            "maintenance_tasks": len(data["maintenance_tasks"]),
         }
 
     except Exception as e:
-
         return {
             "status": "error",
             "message": str(e),
         }
-
 
 # =========================================================
 # TRAINS
@@ -181,6 +178,125 @@ def get_trains():
 # =========================================================
 # TRAINS BY SECTION
 # =========================================================
+
+# =========================================================
+# LIVE TRAIN STATUS
+# =========================================================
+
+@app.get("/api/trains/{train_number}/live")
+def get_live_train_status(
+    train_number: str,
+    date: Optional[str] = None,
+):
+    """
+    Merge PostgreSQL train-planning data with live RailRadar data.
+
+    PostgreSQL remains the source of truth for:
+        - train_id
+        - section
+        - arrival
+        - departure
+        - priority
+
+    RailRadar supplies live operational fields:
+        - train_name
+        - status
+        - delay_minutes
+        - current_station
+        - next_station
+        - latitude
+        - longitude
+        - speed_kmh
+        - last_updated
+    """
+
+    # -----------------------------------------------------
+    # Load PostgreSQL baseline
+    # -----------------------------------------------------
+
+    try:
+        db_data = load_all_from_db()
+
+        db_train = next(
+            (
+                train
+                for train in db_data["trains"]
+                if train.train_id == train_number
+            ),
+            None,
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "Unable to load train from PostgreSQL.",
+                "error": str(e),
+            },
+        )
+
+    if db_train is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "message": f"Train {train_number} not found in PostgreSQL.",
+                "data_source": "postgresql",
+            },
+        )
+
+    # -----------------------------------------------------
+    # Fetch RailRadar live data
+    # -----------------------------------------------------
+
+    try:
+        live = get_live_train(train_number, date)
+        live_train = normalize_live_train(live)
+
+    except RailwayDataError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": str(exc),
+                "data_source": "railradar",
+            },
+        )
+
+    # -----------------------------------------------------
+    # PostgreSQL is the baseline.
+    # RailRadar updates only live fields.
+    # -----------------------------------------------------
+
+    db_train_data = db_train.model_dump()
+
+    merged_train = {
+        # PostgreSQL identity/planning fields
+        "train_id": db_train_data["train_id"],
+        "section": db_train_data["section"],
+        "arrival": db_train_data["arrival"],
+        "departure": db_train_data["departure"],
+        "priority": db_train_data["priority"],
+
+        # Live RailRadar fields
+        "train_name": live_train.get("train_name"),
+        "status": live_train.get("status"),
+        "delay_minutes": live_train.get("delay_minutes", 0),
+        "current_station": live_train.get("current_station"),
+        "next_station": live_train.get("next_station"),
+        "latitude": live_train.get("latitude"),
+        "longitude": live_train.get("longitude"),
+        "speed_kmh": live_train.get("speed_kmh"),
+        "last_updated": live_train.get("last_updated"),
+
+        # Explicitly identify the merged source
+        "data_source": "postgresql+railradar",
+    }
+
+    return {
+        "success": True,
+        "train": merged_train,
+        "raw_status": live.get("status"),
+        "data_source": "postgresql+railradar",
+    }
 
 @app.get("/api/trains/section/{section}")
 def get_section_trains(section: str):
@@ -527,14 +643,29 @@ def optimize(
     # -----------------------------------------------------
 
     run_id = save_schedule(
-        status=result["status"],
-        score=(
-            score["score"]
-            if isinstance(score, dict)
-            else score
-        ),
-        schedule=result["schedule"],
-    )
+    status=result["status"],
+    score=(
+        score["score"]
+        if isinstance(score, dict)
+        else score
+    ),
+    priority_score=(
+        score.get("priority_score")
+        if isinstance(score, dict)
+        else None
+    ),
+    train_impact=(
+        score.get("train_impact")
+        if isinstance(score, dict)
+        else None
+    ),
+    safety_score=(
+        score.get("safety_score")
+        if isinstance(score, dict)
+        else None
+    ),
+    schedule=result["schedule"],
+)
 
     # -----------------------------------------------------
     # Response
@@ -924,6 +1055,9 @@ def apply_schedule(request: ApplyScheduleRequest):
         run_id = save_schedule(
             status=request.status,
             score=request.score,
+            priority_score=request.priority_score,
+            train_impact=request.train_impact,
+            safety_score=request.safety_score,
             schedule=request.schedule,
         )
 

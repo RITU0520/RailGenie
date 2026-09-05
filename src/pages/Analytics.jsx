@@ -35,14 +35,7 @@ function Analytics() {
   if (loading) {
     return (
       <div className="page">
-        <div className="page-header">
-          <div>
-            <h2>Analytics</h2>
-            <p>Optimization performance and maintenance insights</p>
-          </div>
-        </div>
-
-        <div className="analytics-loading">
+         <div className="analytics-loading">
           Loading analytics...
         </div>
       </div>
@@ -52,12 +45,7 @@ function Analytics() {
   if (error) {
     return (
       <div className="page">
-        <div className="page-header">
-          <div>
-            <h2>Analytics</h2>
-            <p>Optimization performance and maintenance insights</p>
-          </div>
-        </div>
+        
 
         <div className="analytics-error">
           <strong>Unable to load analytics</strong>
@@ -79,18 +67,7 @@ function Analytics() {
 
       {/* HEADER */}
 
-      <div className="page-header">
-        <div>
-          <h2>Analytics</h2>
-          <p>
-            Optimization performance and maintenance insights
-          </p>
-        </div>
-
-        <div className="data-source-badge">
-          ● PostgreSQL
-        </div>
-      </div>
+      
 
       {/* KPI CARDS */}
 

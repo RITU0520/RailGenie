@@ -6,12 +6,14 @@ def get_analytics():
         with conn.cursor() as cur:
 
             cur.execute("""
-                SELECT
-                    COUNT(*) AS total_runs,
-                    COALESCE(AVG(score), 0) AS average_score
-                FROM schedule_runs
-                WHERE status = 'optimal'
-            """)
+    SELECT
+        COUNT(*) AS total_runs,
+        COALESCE(
+            AVG(score) FILTER (WHERE status = 'optimal'),
+            0
+        ) AS average_score
+    FROM schedule_runs
+""")
 
             run_row = cur.fetchone()
 
